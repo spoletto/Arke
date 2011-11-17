@@ -18,27 +18,28 @@ app.get('/monitor', function(req, res){
 app.get('/work', function(req, res){
     res.render('work.jade');
 });
-app.post('/results/:taskid', function(req, res){
-    console.log('received result for task ' + req.params.taskid);
-    console.dir(req.body.data);
-    res.json("success!");
-});
-app.get('/tasks/:taskid', function(req, res){
-    console.log('redirecting to fibs.js');
-    res.redirect('/taskScripts/fibs.js');
-});
-
-app.get('/data/:taskid', function(req, res){
-    res.send(JSON.stringify(10));
-});
 
 var io = require('socket.io').listen(app);
 
+/* Maybe have two priority queues - one for tasks, one for connected clients
+ * Need to automatically determine when to start sending a client another task
+ * so as not to waste their cycles while the next chunk is sent
+ * Perhaps keep measure time between emits to get an ETA on the task, also measure time to send task
+ * somehow. Then we;d have enough info to do that correctly.
+ */
 io.sockets.on('connection', function (socket) {
     socket.on('disconnect', function(){
         console.log('client disconnected');
     });
-    socket.emit('task', 'fibs');
+    /*Sending out a task looks like:
+    socket.emit('task', {taskid: 'fibs',
+                         type: 'map',
+                         data: {key: 0, value: 1}});
+     */
+
+     /* Handle completed tasks */
+    socket.on('emit', function(data){});
+    socket.on('emitIntermediate', function(data){});
 });
 
 app.listen(8000);

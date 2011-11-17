@@ -1,48 +1,37 @@
-var socket = io.connect(window.location.hostname, {port: 8000});
+var __handlers = {};
 
-socket.on('connect', function(){ 
-    console.log('socket connected');
-});
+function __emitMessage(action, data){
+    postMessage({action: action, data: data});
+}
 
-socket.on('disconnect', function(){ 
-	console.log('socket disconnected');
-});
 
-socket.on('task', function(taskid){
-    var worker = new MessagingWorker('/tasks/' + taskid);
-    $.get('/data/' + taskid, function(data){
-        worker.on('result', function(data){
-            var data = {data: data};
-            $.post('/results/' + taskid, data, function(){
-                console.log('successfully posted results');
-            }, 'json');
-        });
-        worker.on('log', function(data){
-            console.log(data);
-        });
-        worker.emit('data', data);
-    }, 'json');
-});
+onmessage = function(event){
+    if ("data" in event &&
+        "action" in event.data && 
+        "data" in event.data && 
+        event.data.action in __handlers){
+        __handlers[event.data.action](event.data.data);
+    }
+}
 
-function MessagingWorker(scriptSource){
-    this.worker = new Worker(scriptSource);
-    this.handlers = {};
-    this.on = function(action, handler){
-        this.handlers[action] = handler;
-    };
+var map = function(key, value){};
+var reduce = function(key, values){};
 
-    var that = this;
-    this.worker.onmessage = function(event){
-        if ("data" in event &&
-            "action" in event.data && 
-            "data" in event.data && 
-            event.data.action in that.handlers){
-            that.handlers[event.data.action](event.data.data);
-        }
-    };
+function log(message){
+    __emitMessage('log', message);
+}
 
-    this.emit = function(action, data){
-        console.log('emitting to worker', action, data);
-        this.worker.postMessage({action: action, data: data});
-    };
+function emitIntermediate(key, value){
+    __emitMessage('emitIntermediate', {key: key, value: value});
+}
+
+function emit(key, value){
+    __emitMessage('emit', {key: key, value: value});
+}
+
+__handlers['map'] = function(data){
+    map(data.key, data.value);
+};
+__handlers['reduce'] = function(data){
+    reduce(data.key, data.values);
 }
