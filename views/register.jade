@@ -1,0 +1,17 @@
+!!! 5
+html
+  head
+    meta(charset='utf-8')
+    title Register
+  body
+    #main
+      h2 Register:
+      form#reg_form(name='reg_form', method='post', action='/register/')
+        ul
+          li
+            label(for='login') Username:
+            input#username(type='text', name='login', placeholder='jbloggs')
+          li
+            label(for='password') Password:
+            input#password(type='password', name='password', placeholder='')
+        button(type='submit') Register:

@@ -27,6 +27,9 @@ app.configure(function() {
 app.get('/', function(req, res){
     res.render('home.jade');
 });
+app.get('/register', function(req, res) {
+	res.render('register.jade');
+})
 app.get('/monitor', function(req, res){
     res.render('monitor.jade');
 });

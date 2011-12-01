@@ -46,7 +46,7 @@ Job = mongoose.model('Job', Job);
  */
 function add_new_user(login, password, callback) {
 	// Sanity check the data.
-	check(pwd).notEmpty();
+	check(password).notEmpty();
 	check(login).notEmpty();
 	
 	// Hash the password using a salt.
