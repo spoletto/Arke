@@ -1,14 +1,28 @@
-var connect = require('connect'),
-    express = require('express');
-	db = require('./db_provider');
+/* 
+ * server.js
+ *
+ * Date: 12-01-2011
+ */
 
-require('jade');
+var connect = require('connect'),
+    express = require('express'),
+	db = require('./db_provider');
+	config = require('./config')
+
+var DUPLICATE_KEY_ERROR_CODE = 11000;
 
 var app = express.createServer();
-app.set('view options', {layout: false});
-
-app.use(express.static(__dirname + '/client'));
-app.use(express.bodyParser());
+app.configure(function() {
+    app.set('views', __dirname + '/views');
+    app.set('view engine', 'jade');
+	app.set('view options', {layout: false});
+    app.use(express.bodyParser());
+    app.use(express.methodOverride());
+	app.use(express.cookieParser());
+	app.use(express.session({secret : SESSION_COOKIE_SECRET})); 
+    app.use(app.router);
+    app.use('/client', express.static(__dirname + '/client'));
+});
 
 app.get('/', function(req, res){
     res.render('home.jade');
@@ -18,6 +32,46 @@ app.get('/monitor', function(req, res){
 });
 app.get('/work', function(req, res){
     res.render('work.jade');
+});
+
+// Session Management
+function is_logged_in(req) {
+	return req.session.login != null;
+}
+
+/*
+ * Call this to ensure the request is part of a valid
+ * session (i.e. the user is logged in). If the user is
+ * not logged in, they will be redirected to '/'. If the
+ * user is logged in, the callback will be invoked.
+ */
+function auth_required(req, res, callback) {
+	if (!is_logged_in(req)) { 
+		res.redirect('/');
+		return;
+	}
+	callback();
+}
+
+app.post('/register', function(req, res) {
+	var login = req.body.login;
+	var password = req.body.password;
+	
+	db.add_new_user(login, password, function(err) {
+		if (err && err.code == DUPLICATE_KEY_ERROR_CODE) {
+			// Provided login has already been taken.
+			// TODO: Handle the error.
+			return;
+		} else if (err) {
+			// Another error has occured.
+			// TODO: Handle the error.
+			return;
+		}
+		
+		// New user was successfully saved to the database.
+		// Record the username in the session object.
+		req.session.login = login;
+	});
 });
 
 var io = require('socket.io').listen(app);
