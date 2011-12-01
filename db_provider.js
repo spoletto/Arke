@@ -23,11 +23,13 @@ var User = new Schema({
 
 var Job = new Schema({
 	job_id : String, // This is a string version of the job's ObjectId.
-	creator : ObjectId, // Foreign key pointing to User collection.
+	creator : String, // Login of the user who created the job.
 	map : String, // Filename for the map function.
 	reduce : String, // Filename for the reduce function.
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
+	initial_input_data_count : Number, // The number of WorkUnits in the input_data to begin.
 	intermediate_data : [ ObjectId ],
+	intermediate_data_count : Number, // The number of responses added into the intermediate_data array.
 	sorted_intermediate_data : [ ObjectId ],
 	output_data : [ ObjectId ],
 	worker_count : Number, // The number of workers actively mapping/reducing for this job.
@@ -35,7 +37,6 @@ var Job = new Schema({
 })
 
 var WorkUnit = new Schema({
-	job_id : ObjectId, // Foreign key pointing to the job this work unit is a part of.
 	data : String // The actual data to ship to a worker node.
 });
 
@@ -47,6 +48,7 @@ Job.statics.findAndModify = function (query, sort, doc, options, callback) {
 // Register the schemas with Mongoose.
 User = mongoose.model('User', User);
 Job = mongoose.model('Job', Job);
+WorkUnit = mongoose.model('WorkUnit', WorkUnit);
 
 // Database-layer API functions.
 
@@ -74,6 +76,50 @@ function add_new_user(login, password, callback) {
 }
 
 /*
+ * Create a new job object with the parameters specified. The
+ * input_data should be an array of key-value pairs suitable for
+ * shipping to worker nodes.
+ */
+function add_new_job(creator_login, map, reduce, input_data) {
+	// Ensure the specified user exists.
+	User.findOne({
+		login:creator_login
+	}, function(err, user) {
+		if (err) { console.warn("Database error!"); return; }
+		if (!user) { console.warn("No such user!"); return; }
+		add_job_to_user(user);
+	});
+	
+	function add_job_to_user(user) {
+		var new_job = new Job();
+		new_job.job_id = new_job._id.toString();
+		new_job.creator = creator_login;
+		new_job.map = map;
+		new_job.reduce = reduce;
+		new_job.active = true;
+		new_job.intermediate_data = [];
+		new_job.intermediate_data_count = 0;
+		new_job.sorted_intermediate_data = [];
+		new_job.output_data = [];
+		new_job.worker_count = 0;
+
+		// Create a new WorkUnit object for each entry in the input_data array.
+		map_tasks = []
+		input_data.forEach(function(item) {
+			var new_work_unit = new WorkUnit();
+			new_work_unit.data = item;
+			new_work_unit.save();
+			map_tasks.push(new_work_unit._id);
+		})
+		new_job.initial_input_data_count = map_tasks.length;
+		new_job.input_data = map_tasks;
+		new_job.save();
+		user.jobs.push(new_job._id);
+		user.save();
+	}
+}
+
+/*
  * Dequeue a unit of work from the job's input_data
  * queue. The job_id specified should be the ObjectId
  * of the job object in the database. Upon success,
@@ -87,6 +133,30 @@ function dequeue_map_work(job_id, callback) {
 	Job.findAndModify({ 'job_id':job_id }, [], { $pop: { input_data : -1 } }, { new: false }, function(err, job) {
 		if (err) { console.warn(err.message); return; }
 		if (!job) { console.warn("No job found."); return; }
+		if (!job.input_data.length) { callback(null, null); return; }
+		
+		var work_unit_id = job.input_data[0];
+		WorkUnit.findOne({
+			_id:work_unit_id
+		}, callback);
+	});
+}
+
+/*
+ * Enqueue
+Dequeue a unit of work from the job's input_data
+ * queue. The job_id specified should be the ObjectId
+ * of the job object in the database. Upon success,
+ * the callback will be invoked with the unit of work
+ * dequeued. Callback should be of the form
+ * function (err, work_unit). If the work_unit provided
+ * to the callback is null and there is no error, the
+ * caller can assume this job has no pending map work units.
+ */
+/*function enqueue_intermediate_data(job_id, intermediate_result) {
+	Job.findAndModify({ 'job_id':job_id }, [], { $pop: { input_data : -1 } }, { new: false }, function(err, job) {
+		if (err) { console.warn(err.message); return; }
+		if (!job) { console.warn("No job found."); return; }
 		
 		var work_unit = null;
 		if (job.input_data.length) {
@@ -94,7 +164,7 @@ function dequeue_map_work(job_id, callback) {
 		}
 		callback(null, work_unit);
 	});
-}
+}*/
 
 /*
  * Returns all currently active jobs via the callback.
@@ -105,17 +175,15 @@ function all_active_jobs(callback) {
 	Job.find( { 'active' : true }, callback);
 }
 
-//function add_new_job(...)
-// { $set : { field : value } }
-// { $set : { job_id : str(job._id) }}
-
 // Now export the schemas publicly so other modules
 // can perform actions such as User.findOne(...)
 exports.User = User;
 exports.Job = Job;
+exports.WorkUnit = WorkUnit;
 
 // And export the public API.
 exports.add_new_user = add_new_user;
 exports.dequeue_map_work = dequeue_map_work;
 exports.all_active_jobs = all_active_jobs;
+exports.add_new_job = add_new_job;
 
