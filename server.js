@@ -1,5 +1,6 @@
 var connect = require('connect'),
     express = require('express');
+	db = require('./db_provider');
 
 require('jade');
 
