@@ -16,7 +16,7 @@ var check = require('validator').check;
 var bcrypt = require('bcrypt');
 
 var User = new Schema({
-	login : { type: String, unique: true },
+	email_address : { type: String, unique: true },
 	password : String,
 	jobs : [ ObjectId ] // Foreign key pointing to Jobs collection.
 });
@@ -24,7 +24,7 @@ var User = new Schema({
 var Job = new Schema({
 	job_id : String, // This is a string version of the job's ObjectId.
 	phase : String, // ["Map", "Shuffle", "Reduce", "Finished"]
-	creator : String, // Login of the user who created the job.
+	creator : String, // Email address of the user who created the job.
 	map : String, // Filename for the map function.
 	reduce : String, // Filename for the reduce function.
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
@@ -63,21 +63,22 @@ WorkUnit = mongoose.model('WorkUnit', WorkUnit);
 // Database-layer API functions.
 
 /* 
- * Adds a new user with the provided login and password to the
+ * Adds a new user with the provided email address and password to the
  * database. The password will be salted and hashed. Callback
  * provided should be of the form function (err).
  *
  */
-function add_new_user(login, password, callback) {
+function add_new_user(email_address, password, callback) {
 	// Sanity check the data.
 	check(password).notEmpty();
-	check(login).notEmpty();
+	check(email_address).notEmpty();
+	check(email_address).isEmail();
 	
 	// Hash the password using a salt.
 	bcrypt.gen_salt(10, function(err, salt) {
 	    bcrypt.encrypt(password, salt, function(err, hash) {
 			var new_user = new User();
-			new_user.login = login;
+			new_user.email_address = email_address;
 			new_user.password = hash;
 			new_user.jobs = [];
 			new_user.save(callback);
@@ -91,10 +92,10 @@ function add_new_user(login, password, callback) {
  * shipping to worker nodes. Callback should be of the form: function (err, job).
  * The callback provides the newly created job object to the caller.
  */
-function add_new_job(creator_login, map, reduce, input_data, replication_factor, callback) {
+function add_new_job(creator_email_address, map, reduce, input_data, replication_factor, callback) {
 	// Ensure the specified user exists.
 	User.findOne({
-		login:creator_login
+		email_address:creator_email_address
 	}, function(err, user) {
 		if (err) { console.warn("Database error!"); return; }
 		if (!user) { console.warn("No such user!"); return; }
@@ -105,7 +106,7 @@ function add_new_job(creator_login, map, reduce, input_data, replication_factor,
 		var new_job = new Job();
 		new_job.phase = "Map";
 		new_job.job_id = new_job._id.toString();
-		new_job.creator = creator_login;
+		new_job.creator = creator_email_address;
 		new_job.map = map;
 		new_job.reduce = reduce;
 		new_job.active = true;

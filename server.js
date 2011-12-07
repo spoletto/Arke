@@ -39,7 +39,7 @@ app.get('/work', function(req, res){
 
 // Session Management
 function is_logged_in(req) {
-	return req.session.login != null;
+	return req.session.email_address != null;
 }
 
 /*
@@ -56,13 +56,19 @@ function auth_required(req, res, callback) {
 	callback();
 }
 
+/* User registration endpoint.
+ * POST DATA: {
+ *    email_address: User-specified email address.
+ *    password: User-specified password.
+ * }
+ */
 app.post('/register', function(req, res) {
-	var login = req.body.login;
+	var email_address = req.body.email_address;
 	var password = req.body.password;
 	
-	db.add_new_user(login, password, function(err) {
+	db.add_new_user(email_address, password, function(err) {
 		if (err && err.code == DUPLICATE_KEY_ERROR_CODE) {
-			// Provided login has already been taken.
+			// Provided email address has already been taken.
 			// TODO: Handle the error.
 			return;
 		} else if (err) {
@@ -72,8 +78,8 @@ app.post('/register', function(req, res) {
 		}
 		
 		// New user was successfully saved to the database.
-		// Record the username in the session object.
-		req.session.login = login;
+		// Record the email address in the session object.
+		req.session.email_address = email_address;
 	});
 });
 
