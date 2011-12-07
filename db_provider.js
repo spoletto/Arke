@@ -204,4 +204,6 @@ exports.add_new_user = add_new_user;
 exports.dequeue_map_work = dequeue_map_work;
 exports.all_active_jobs = all_active_jobs;
 exports.add_new_job = add_new_job;
+exports.dequeue_reduce_work = dequeue_reduce_work;
+exports.enqueue_intermediate_result = enqueue_intermediate_result;
 
