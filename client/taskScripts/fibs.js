@@ -10,11 +10,11 @@ function fib(n){
     }
 }
 
-map = function(key, value){
-    var n = parseInt(value);
-    emitIntermediate(n, fib(n));
+map = function(data, emit){
+    var n = parseInt(data);
+    emit(n, fib(n));
 }
 
-reduce = function(key, values){
+reduce = function(key, values, emit){
     emit(key, values[0]);
 }

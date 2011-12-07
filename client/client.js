@@ -10,17 +10,18 @@ socket.on('disconnect', function(){
 	console.log('socket disconnected');
 });
 
+/* XXX how to prune dead workers? multiple workers for one jobid? */
 socket.on('task', function(data){
-    var taskid = data.taskid;
-    if(!(taskid in workers)){
-        workers[taskid] = new MessagingWorker(taskid);
+    var jobid = data.jobid;
+    if(!(jobid in workers)){
+        workers[jobid] = new MessagingWorker(jobid);
     }
-    workers[taskid].emit(data.type, data.data);
+    workers[jobid].emit('task', data);
 });
 
-function MessagingWorker(taskid){
-    this.taskid = taskid;
-    this.worker = new Worker('tasks/' + taskid);
+function MessagingWorker(jobid){
+    this.jobid = jobid;
+    this.worker = new Worker('jobs/' + jobid);
     this.handlers = {};
     this.on = function(action, handler){
         this.handlers[action] = handler;
@@ -40,16 +41,12 @@ function MessagingWorker(taskid){
         this.worker.postMessage({action: action, data: data});
     };
     this.on('log', function(message){
-        console.log(that.taskid + ':', message);
+        console.log(that.jobid + ':', message);
     });
     this.on('emit', function(data){
-        socket.emit('emit', {taskid: that.taskid,
-                             key: data.key,
-                             value: data.value});
+        socket.emit('emit', data);
     });
-    this.on('emitIntermediate', function(data){
-        socket.emit('emitIntermediate', {taskid: that.taskid,
-                                         key: data.key,
-                                         value: data.value});
+    this.on('done', function(data){
+        socket.emit('done', data);
     });
 }

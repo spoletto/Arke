@@ -77,27 +77,99 @@ app.post('/register', function(req, res) {
 	});
 });
 
+app.listen(8000);
+
 var io = require('socket.io').listen(app);
 
-/* Maybe have two priority queues - one for tasks, one for connected clients
- * Need to automatically determine when to start sending a client another task
- * so as not to waste their cycles while the next chunk is sent
- * Perhaps keep measure time between emits to get an ETA on the task, also measure time to send task
- * somehow. Then we;d have enough info to do that correctly.
- */
 io.sockets.on('connection', function (socket) {
-    socket.on('disconnect', function(){
-        console.log('client disconnected');
-    });
-    /*Sending out a task looks like:
-    socket.emit('task', {taskid: 'fibs',
-                         type: 'map',
-                         data: {key: 0, value: 1}});
-     */
+    var tasks = {};
 
-     /* Handle completed tasks */
-    socket.on('emit', function(data){});
-    socket.on('emitIntermediate', function(data){});
+    socket.on('disconnect', function(){
+        console.log(socket.id + ' disconnected');
+        restoreTasks(tasks);
+    });
+
+    socket.on('emit', function(data){
+        /* TODO this entry's existence should be asserted to some extent */
+        tasks[data.jobid][data.phase][data.chunkid].append(
+            {key: data.key, value: data.value}
+        );
+    });
+
+    socket.on('done', function(data){
+        /* TODO data validity and this entry's existence should be asserted to some extent */
+        if(data.phase == "Map"){
+            enqueue_intermediate_result(data.jobid, data.chunkid,
+                                        tasks[data.jobid][data.phase][data.chunkid], handleShuffle);
+        } else if(data.phase == "Reduce"){ 
+            commit_final_result(data.jobid, data.chunkid, tasks[data.jobid][data.phase][data.chunkid]);
+        }
+        sendTasks();
+    });
+
+    function sendTasks(){
+        if(tasks.length < MAX_TASKS_PER_WORKER){
+            getTask(function(err, task){
+                if(err){
+                    return;
+                }
+
+                /* TODO assert task validity */
+
+                if(!(data.jobid in tasks))
+                    tasks[data.jobid] = {};
+
+                if(!(data.phase in tasks[data.jobid]))
+                    tasks[data.jobid][data.phase] = {}
+
+                /* TODO assert chunkid not already there */
+                tasks[data.jobid][data.phase][data.chunkid] = {};
+                socket.emit('task', task);
+                sendTasks();
+            })
+        };
+    }
+
+    sendTasks();
 });
 
-app.listen(8000);
+function getTask(callback){
+    db.all_active_jobs(function(err, jobs){
+        /* main TODO: how do deal with no active jobs, i.e. how do workers idle */
+        if(err || jobs.length == 0) return false;    
+
+        var job = jobs[Math.floor(Math.random()*jobs.length)];
+
+        var dequeue;
+        if(job.phase == "Map"){
+            dequeue = dequeue_map_work;
+        } else if(job.phase == "Reduce"){
+            dequeue = dequeue_map_reduce;
+        } else {
+            /* TODO non-active job! err or try again */
+            return;
+        }
+
+        dequeue(job._id, function(err, work_unit){
+            if(!err && work_unit == null)
+                return getTask(callback);
+
+            var task = {phase: job.phase,
+                        jobid: job._id,
+                        chunkid: work_unit._id,
+                        data: work_unit.data};
+            callback(0, task);
+        });
+    });
+}
+
+/* put each task back in its corresponding job queue */
+function restoreTasks(tasks){
+    /* TODO */
+}
+
+/* verify replicates, group by key, initialize reduce */
+function handleShuffle(jobid, intermediate_data){
+    /* TODO */
+}
+
