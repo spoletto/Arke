@@ -29,6 +29,14 @@ socket.on('wait', function(){
     }, WAIT_TIME);
 });
 
+socket.on('kill', function(jobid){
+    /* should probably keep track of active tasks in worker and assert
+     * that they are finished before terminating the worker. */
+    if(jobid in workers){
+        workers[jobid].worker.terminate();
+    }
+}
+
 function MessagingWorker(jobid){
     this.jobid = jobid;
     this.worker = new Worker('jobs/' + jobid);

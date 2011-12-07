@@ -373,6 +373,16 @@ function all_active_jobs(callback) {
 	Job.find( { 'active' : true }, callback);
 }
 
+/* XXX pass err to callback? */
+function is_job_active(jobid, callback){
+    Jobs.find( {'job_id' : jobid }, function(err, job){
+        if(err) { console.warn(err); return; }
+        if(!job) { callback(false); }
+        callback(job.active);
+    });
+}
+
+
 // Now export the schemas publicly so other modules
 // can perform actions such as User.findOne(...)
 exports.User = User;
