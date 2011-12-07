@@ -102,8 +102,7 @@ app.post('/register', function(req, res) {
 	
 	db.add_new_user(email_address, password, function(err) {
 		if (err && err.code == DUPLICATE_KEY_ERROR_CODE) {
-			// Provided email address has already been taken.
-			// TODO: Handle the error.
+			res.json({ status: 'email_taken' });
 			return;
 		} else if (err) {
 			// Another error has occured.
