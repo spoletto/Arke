@@ -292,8 +292,6 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 								var reduce_data_count = 0;
 								for (var reduce_data_key in newJob.validated_intermediate_result) {
 									// Create a new WorkUnit object for each chunk of work to be completed in the reduce phase.
-									reduce_key_value_pair = {};
-									reduce_key_value_pair[reduce_data_key] = newJob.validated_intermediate_result[reduce_data_key];
 									var new_work_unit = new WorkUnit();
 									new_work_unit.data = JSON.stringify(reduce_key_value_pair);
 									new_work_unit.save();
@@ -364,6 +362,16 @@ function enqueue_final_result(job_id, work_unit_id, result, callback) {
 function all_active_jobs(callback) {
 	Job.find( { 'active' : true }, callback);
 }
+
+/* XXX pass err to callback? */
+function is_job_active(jobid, callback){
+    Jobs.find( {'job_id' : jobid }, function(err, job){
+        if(err) { console.warn(err); return; }
+        if(!job) { callback(false); }
+        callback(job.active);
+    });
+}
+
 
 // Now export the schemas publicly so other modules
 // can perform actions such as User.findOne(...)
