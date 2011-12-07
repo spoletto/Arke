@@ -22,6 +22,7 @@ var User = new Schema({
 });
 
 var Job = new Schema({
+	replication_factor : Number, 
 	job_id : String, // This is a string version of the job's ObjectId.
 	phase : String, // ["Map", "Shuffle", "Reduce", "Finished"]
 	creator : String, // Email address of the user who created the job.
@@ -29,19 +30,10 @@ var Job = new Schema({
 	reduce : String, // Filename for the reduce function.
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
 	map_data : [ ObjectId ], // A mutable copy of the input_data, from which we dequeue work units.
+	reduce_data : [ ObjectId ],
 	initial_input_data_count : Number, // The number of WorkUnits in the input_data to begin.
-	intermediate_data : [ {
-		work_unit_id : String,
-		result : String
-	} ],
-	intermediate_data_count : Number, // The number of responses added into the intermediate_data array.
-	sorted_intermediate_data : [ ObjectId ],
-	reduce_data_count : Number,
-	output_data : [ {
-		work_unit_id : String,
-		result : String
-	} ],
-	output_data_count : Number,
+	validated_intermediate_result_count : Number,
+	validated_output_result_count : Number,
 	worker_count : Number, // The number of workers actively mapping/reducing for this job.
 	active : Boolean // A job is active whenever it is in the "Map" or "Reduce" phase.
 })
@@ -59,6 +51,65 @@ Job.statics.findAndModify = function (query, sort, doc, options, callback) {
 User = mongoose.model('User', User);
 Job = mongoose.model('Job', Job);
 WorkUnit = mongoose.model('WorkUnit', WorkUnit);
+
+/*
+ * Object deep equals.
+ * Taken from http://stackoverflow.com/questions/1068834/object-comparison-in-javascript.
+ * Used for ensuring replicated responses are equivalent.
+ */
+function deepEquals(x, y) {
+  var p;
+  for (p in y) {
+	  if (typeof(x[p])=='undefined') { return false; }
+  }
+  for (p in y) {
+	  if (y[p]) {
+		  switch (typeof(y[p])) {
+			  case 'object':
+				  if (!y[p].equals(x[p])) { return false; } break;
+			  case 'function':
+				  if (typeof(x[p])=='undefined' ||
+					  (p != 'equals' && y[p].toString() != x[p].toString()))
+					  return false;
+				  break;
+			  default:
+				  if (y[p] != x[p]) { return false; }
+		  }
+	  } else {
+		  if (x[p])
+			  return false;
+	  }
+  }
+  for (p in x) {
+	  if (typeof(y[p])=='undefined') { return false; }
+  }
+  return true;
+}
+
+/*
+ * Compares two JSON strings for equivalence.
+ */
+function isJSONEquivalent(json_one, json_two) {
+	var anObj = JSON.parse(json_one.toString());
+	var anotherObj= JSON.parse(json_two.toString());
+	return deepEquals(anObj, anotherObj);
+}
+
+/*
+ * Returns true if every element in the array provided
+ * is equivalent using 'isJSONEquivalent'.
+ */
+function equvalent_json_entries_in_array(my_array) {
+  if (my_array.length == 1 || my_array.length == 0) {
+	 return true;
+  }
+  for (i=0; i < my_array.length; i++) {
+	 if (i > 0 && !isJSONEquivalent(my_array[i], my_array[i-1])) {
+	   return false;
+	 }
+  }
+  return true;
+}
 
 // Database-layer API functions.
 
@@ -110,23 +161,23 @@ function add_new_job(creator_email_address, map, reduce, input_data, replication
 		new_job.map = map;
 		new_job.reduce = reduce;
 		new_job.active = true;
-		new_job.intermediate_data = [];
-		new_job.intermediate_data_count = 0;
-		new_job.sorted_intermediate_data = [];
-		new_job.output_data = [];
 		new_job.worker_count = 0;
+		new_job.replication_factor = replication_factor;
+		new_job.reduce_data = [];
 
 		// Create a new WorkUnit object for each entry in the input_data array.
 		map_tasks = []
+		initial_data_count = 0;
 		input_data.forEach(function(item) {
 			var new_work_unit = new WorkUnit();
 			new_work_unit.data = item;
 			new_work_unit.save();
+			initial_data_count++;
 			for (var i = 0; i < replication_factor; i++) {
 				map_tasks.push(new_work_unit._id);
 			}
 		})
-		new_job.initial_input_data_count = map_tasks.length;
+		new_job.initial_input_data_count = initial_data_count;
 		new_job.input_data = map_tasks;
 		new_job.map_data = map_tasks;
 		new_job.save(function(err) {
@@ -175,12 +226,12 @@ function enqueue_map_work(job_id, work_unit_id) {
  * Same as dequeue_map_work, but for the reduce phase of operation.
  */
 function dequeue_reduce_work(job_id, callback) {
-	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { sorted_intermediate_data : -1 } }, { new: false }, function(err, job) {
+	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { reduce_data : -1 } }, { new: false }, function(err, job) {
 		if (err) { console.warn(err.message); return; }
 		if (!job) { console.warn("No job found."); return; }
-		if (!job.sorted_intermediate_data.length) { callback(null, null); return; }
+		if (!job.reduce_data.length) { callback(null, null); return; }
 		
-		var work_unit_id = job.sorted_intermediate_data[0];
+		var work_unit_id = job.reduce_data[0];
 		WorkUnit.findOne({
 			_id:work_unit_id
 		}, callback);
@@ -192,32 +243,69 @@ function dequeue_reduce_work(job_id, callback) {
  * This is useful when a client disconnects, for instance.
  */
 function enqueue_reduce_work(job_id, work_unit_id) {
-	Job.update({ 'job_id':job_id.toString() }, { $push: { sorted_intermediate_data : work_unit_id } }, {}, function(err) {
+	Job.update({ 'job_id':job_id.toString() }, { $push: { reduce_data : work_unit_id } }, {}, function(err) {
 		// TODO: Handle error.
 	});
 }
 
 /*
  * Enqueue a key-value pair as an intermediate result from the map
- * phase of operation. Callback should be of the form function (job_id, intermediate_data_array).
- * The job's phase will be set to "Shuffle" and its active flag set to false before the
- * callback is invoked.
+ * phase of operation. This function will keep track of the response
+ * received on a per-work-unit-ID basis. When it has received replication_factor
+ * number of responses, it will check to make sure all of the responses received
+ * for a single work-unit are equivalent. If they are, it consolidates the
+ * responses into a single key-value pair and adds it to validated_intermediate_results.
+ * The validated_intermediate_results dictionary groups validated responses by key
+ * so that once all the map data chunks have been processed, we can switch into
+ * the reduce phase without an expensive in-memory shuffle phase.
  */
 function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
-	var intermediate_result = {
-		"work_unit_id" : work_unit_id.toString(),
-		"result" : result
-	};
-	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $push: { intermediate_data: intermediate_result }, $inc : { intermediate_data_count: 1 } }, { new: true }, function(err, job) {
-		if (job.initial_input_data_count == job.intermediate_data_count) {
-			// Actually grab the live job object rather than a static snapshot.
-			Job.findOne({ 'job_id':job_id.toString() }, function(err, realJob) {
-				realJob.phase = "Shuffle";
-				realJob.active = false;
-				realJob.save(function(err) {
-					callback(job_id, job.intermediate_data);
-				});
-			});
+	var work_unit_bucket = "intermediate_data." + work_unit_id.toString();	
+	var update_options = {};
+	var push_options = {};
+	push_options[work_unit_bucket] = result;
+	update_options['$push'] = push_options;
+	
+	Job.findAndModify({ 'job_id':job_id.toString() }, [], update_options, { new: true }, function(err, job) {
+		if (err) { console.warn(err); return; }
+		if (job.replication_factor == job.intermediate_data[work_unit_id.toString()].length) {
+			// We've now received 'replication_factor' number of responses for the same work unit.
+			if (equvalent_json_entries_in_array(job.intermediate_data[work_unit_id.toString()])) {
+				var response = JSON.parse(job.intermediate_data[work_unit_id.toString()][0]);
+				for (var key in response) {
+					if (response.hasOwnProperty(key)) {
+						var response_bucket = "validated_intermediate_result." + key;
+						var new_update_options = {};
+						var new_push_options = {};
+						new_push_options[response_bucket] = response[key];
+						new_update_options['$push'] = new_push_options;
+						new_update_options['$inc'] = { validated_intermediate_result_count : 1};
+						Job.findAndModify( { 'job_id':job_id.toString() }, [], new_update_options, { new: true }, function(err, newJob) {
+							if (newJob.initial_input_data_count == newJob.validated_intermediate_result_count) {
+								// Map phase is finished! We've received responses for every original data chunk.
+								// Convert the validated_intermediate_results dictionary into a reduce_data array for MongoDB atomic $pop-ing.
+								var reduce_data = []
+								for (var reduce_data_key in newJob.validated_intermediate_result) {
+									// Create a new WorkUnit work each chunk of work to be completed in the reduce phase.
+									reduce_key_value_pair = {};
+									reduce_key_value_pair[reduce_data_key] = newJob.validated_intermediate_result[reduce_data_key];
+									var new_work_unit = new WorkUnit();
+									new_work_unit.data = JSON.stringify(reduce_key_value_pair);
+									new_work_unit.save();
+									reduce_data.push(new_work_unit);
+								}
+								Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data:reduce_data, phase: "Reduce" } }, {}, function(err) {
+									if (err) { console.warn(err); return; }
+								});
+							}
+						});
+					}
+				}
+			} else {
+				// We received conflicting responses for this work unit.
+				// TODO: Handle.
+				console.log("Conflicting responses!");
+			}
 		}
 	});
 }
@@ -229,7 +317,7 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
  * callback is invoked.
  */
 function enqueue_final_result(job_id, work_unit_id, result, callback) {
-	var final_result = {
+	/*var final_result = {
 		"work_unit_id" : work_unit_id.toString(),
 		"result" : result
 	};
@@ -244,7 +332,7 @@ function enqueue_final_result(job_id, work_unit_id, result, callback) {
 				});
 			});
 		}
-	});
+	});*/
 }	
 
 /*
