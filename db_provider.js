@@ -118,10 +118,12 @@ function add_new_job(creator_login, map, reduce, input_data, replication_factor,
 		})
 		new_job.initial_input_data_count = map_tasks.length;
 		new_job.input_data = map_tasks;
-		new_job.save();
-		user.jobs.push(new_job._id);
-		user.save();
-		callback(new_job);
+		new_job.save(function(err) {
+			user.jobs.push(new_job._id);
+			user.save(function(err) {
+				callback(null, new_job);
+			});
+		});
 	}
 }
 
