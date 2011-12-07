@@ -240,15 +240,16 @@ function enqueue_map_work(job_id, work_unit_id) {
  * Same as dequeue_map_work, but for the reduce phase of operation.
  */
 function dequeue_reduce_work(job_id, callback) {
-	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { reduce_data : -1 } }, { new: false }, function(err, job) {
+	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { intermediate_keys : -1 } }, { new: false }, function(err, job) {
 		if (err) { console.warn(err.message); return; }
 		if (!job) { console.warn("No job found."); return; }
-		if (!job.reduce_data.length) { callback(null, null); return; }
-		
-		var work_unit_id = job.reduce_data[0];
-		WorkUnit.findOne({
-			_id:work_unit_id
-		}, callback);
+		if (!job.intermediate_keys.length) { callback(null, null); return; }
+	
+		var work_key = job.intermediate_keys[0];
+		var value = job.validated_intermediate_result[work_key];
+		var response = {};
+		response[work_key] = value;
+		callback(null, response);
 	});
 }
 
@@ -295,28 +296,20 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 							var response_bucket = "validated_intermediate_result." + key;
 							var new_update_options = {};
 							var new_push_options = {};
+							var duplicated_key_set = [];
+							for (var j = 0; j < job.replication_factor; j++) {
+								duplicated_key_set.push(key);
+							}
+							new_push_all_options = {};
+							new_push_all_options['intermediate_keys'] = duplicated_key_set;
 							new_push_options[response_bucket] = response[key];
 							new_update_options['$push'] = new_push_options;
-							new_update_options['$inc'] = { validated_intermediate_result_count : 1};
+							new_update_options['$inc'] = { validated_intermediate_result_count : 1 };
+							new_update_options['$pushAll'] = new_push_all_options;
 							Job.findAndModify( { 'job_id':job_id.toString() }, [], new_update_options, { new: true }, function(err, newJob) {
 								if (newJob.initial_input_data_count == newJob.validated_intermediate_result_count) {
 									// Map phase is finished! We've received responses for every original data chunk.
-									// Convert the validated_intermediate_results dictionary into a reduce_data array for MongoDB atomic $pop-ing.
-									var reduce_data = [];
-									var reduce_data_count = 0;
-									for (var reduce_data_key in newJob.validated_intermediate_result) {
-										// Create a new WorkUnit object for each chunk of work to be completed in the reduce phase.
-										reduce_key_value_pair = {};
-										reduce_key_value_pair[reduce_data_key] = newJob.validated_intermediate_result[reduce_data_key];
-										var new_work_unit = new WorkUnit();
-										new_work_unit.data = JSON.stringify(reduce_key_value_pair);
-										new_work_unit.save();
-										reduce_data_count++;
-										for (var i = 0; i < job.replication_factor; i++) {
-											reduce_data.push(new_work_unit);
-										}
-									}
-									Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data:reduce_data, reduce_data_count:reduce_data_count, phase: "Reduce" } }, {}, function(err) {
+									Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data_count:(newJob.intermediate_keys.length/job.replication_factor), phase: "Reduce" } }, {}, function(err) {
 										if (err) { console.warn(err); return; }
 										callback();
 									});
@@ -338,8 +331,8 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
  * Same as enqueue_intermediate_result, but for the reduce phase of operation.
  * The callback is invoked when the job is completed. The callback is of the form: function().
  */
-function enqueue_final_result(job_id, work_unit_id, result, callback) {
-	var work_unit_bucket = "reduce_intermediate_data." + work_unit_id.toString();
+function enqueue_final_result(job_id, key, result, callback) {
+	var work_unit_bucket = "reduce_intermediate_data." + key;
 	var update_options = {};
 	var push_options = {};
 	push_options[work_unit_bucket] = result;
@@ -347,10 +340,10 @@ function enqueue_final_result(job_id, work_unit_id, result, callback) {
 	
 	Job.findAndModify({ 'job_id':job_id.toString() }, [], update_options, { new: true }, function(err, job) {
 		if (err) { console.warn(err); return; }
-		if (job.replication_factor == job.reduce_intermediate_data[work_unit_id.toString()].length) {
+		if (job.replication_factor == job.reduce_intermediate_data[key].length) {
 			// We've now received 'replication_factor' number of responses for the same work unit.
-			if (equivalent_objects_in_array(job.reduce_intermediate_data[work_unit_id.toString()])) {
-				var response = job.reduce_intermediate_data[work_unit_id.toString()][0];
+			if (equivalent_objects_in_array(job.reduce_intermediate_data[key])) {
+				var response = job.reduce_intermediate_data[key][0];
 				
 				// Add the validated response to the output_data array. Then check to see if we're finished with the job.
 				Job.findAndModify( { 'job_id':job_id.toString() }, [], { $push: { output_data : response } }, { new: true }, function(err, updatedJob) {
