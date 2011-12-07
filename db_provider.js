@@ -28,6 +28,7 @@ var Job = new Schema({
 	map : String, // Filename for the map function.
 	reduce : String, // Filename for the reduce function.
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
+	map_data : [ ObjectId ], // A mutable copy of the input_data, from which we dequeue work units.
 	initial_input_data_count : Number, // The number of WorkUnits in the input_data to begin.
 	intermediate_data : [ ObjectId ],
 	intermediate_data_count : Number, // The number of responses added into the intermediate_data array.
@@ -118,6 +119,7 @@ function add_new_job(creator_login, map, reduce, input_data, replication_factor,
 		})
 		new_job.initial_input_data_count = map_tasks.length;
 		new_job.input_data = map_tasks;
+		new_job.map_data = map_tasks;
 		new_job.save(function(err) {
 			user.jobs.push(new_job._id);
 			user.save(function(err) {
@@ -128,7 +130,7 @@ function add_new_job(creator_login, map, reduce, input_data, replication_factor,
 }
 
 /*
- * Dequeue a unit of work from the job's input_data
+ * Dequeue a unit of work from the job's map_data
  * queue. The job_id specified should be the ObjectId
  * of the job object in the database. Upon success,
  * the callback will be invoked with the unit of work
@@ -138,12 +140,12 @@ function add_new_job(creator_login, map, reduce, input_data, replication_factor,
  * caller can assume this job has no pending map work units.
  */
 function dequeue_map_work(job_id, callback) {
-	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { input_data : -1 } }, { new: false }, function(err, job) {
+	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { map_data : -1 } }, { new: false }, function(err, job) {
 		if (err) { console.warn(err.message); return; }
 		if (!job) { console.warn("No job found."); return; }
-		if (!job.input_data.length) { callback(null, null); return; }
+		if (!job.map_data.length) { callback(null, null); return; }
 		
-		var work_unit_id = job.input_data[0];
+		var work_unit_id = job.map_data[0];
 		WorkUnit.findOne({
 			_id:work_unit_id
 		}, callback);
