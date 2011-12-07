@@ -56,6 +56,40 @@ function auth_required(req, res, callback) {
 	callback();
 }
 
+/* User login endpoint.
+ * POST DATA: {
+ *    email_address: User-specified email address.
+ *    password: User-specified password.
+ * }
+ */
+app.post('/login', function(req, res) {
+	var email_address = req.body.email_address;
+	var password = req.body.password;
+	
+	db.User.findOne({
+		email_address:email_address
+	}, function(err, user) {
+		if (err) {
+			// TODO: Handle the error.
+		}
+		if (!user) {
+			res.json({ status: 'bad_email' });
+			return;
+		}
+		
+		// Verify provided password is correct.
+		bcrypt.compare(password, user.password, function(err, pw_success) {
+			if (pw_success) {
+				res.json({ status: 'login_successful' });
+				return;
+			} else {
+				res.json({ status: 'bad_password' });
+				return;
+			}
+		});
+	});
+});
+
 /* User registration endpoint.
  * POST DATA: {
  *    email_address: User-specified email address.
