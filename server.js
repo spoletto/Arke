@@ -61,6 +61,9 @@ function auth_required(req, res, callback) {
  *    email_address: User-specified email address.
  *    password: User-specified password.
  * }
+ * RESPONSE: {
+ *    status: ["bad_email", "bad_password", "login_successful", "error"]
+ * }
  */
 app.post('/login', function(req, res) {
 	var email_address = req.body.email_address;
@@ -70,7 +73,8 @@ app.post('/login', function(req, res) {
 		email_address:email_address
 	}, function(err, user) {
 		if (err) {
-			// TODO: Handle the error.
+			res.json({ status: 'error' }, 500);
+			return;
 		}
 		if (!user) {
 			res.json({ status: 'bad_email' });
@@ -95,6 +99,9 @@ app.post('/login', function(req, res) {
  *    email_address: User-specified email address.
  *    password: User-specified password.
  * }
+ * RESPONSE: {
+ *    status: ["email_taken", "registration_successful", "error"]
+ * }
  */
 app.post('/register', function(req, res) {
 	var email_address = req.body.email_address;
@@ -105,14 +112,15 @@ app.post('/register', function(req, res) {
 			res.json({ status: 'email_taken' });
 			return;
 		} else if (err) {
-			// Another error has occured.
-			// TODO: Handle the error.
+			res.json({ status: 'error' }, 500);
 			return;
 		}
 		
 		// New user was successfully saved to the database.
 		// Record the email address in the session object.
 		req.session.email_address = email_address;
+		res.json(status : 'registration_successful');
+		return;
 	});
 });
 
