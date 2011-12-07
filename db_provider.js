@@ -88,28 +88,41 @@ function deepEquals(x, y) {
 }
 
 /*
- * Compares two JSON strings for equivalence.
+ * Returns true if every element in the array provided
+ * is equivalent using 'deepEquals'. The elements inside
+ * my_array must also be arrays.
  */
-function isJSONEquivalent(json_one, json_two) {
-	var anObj = JSON.parse(json_one.toString());
-	var anotherObj= JSON.parse(json_two.toString());
-	return deepEquals(anObj, anotherObj);
+function equivalent_arrays_in_array(my_array) {
+	if (my_array.length == 1 || my_array.length == 0) {
+		return true;
+	}
+	for (var i = 1; i < my_array.length; i++) {
+		if (my_array[i].length != my_array[i-1].length) {
+			return false;
+		}
+		for (var j = 0; j < my_array[i].length; j++) {
+			if (!deepEquals(my_array[i][j], my_array[i-1][j])) {
+				return false;
+			}
+		}
+  }
+  return true;
 }
 
 /*
  * Returns true if every element in the array provided
- * is equivalent using 'isJSONEquivalent'.
+ * is equivalent using 'deepEquals'.
  */
-function equvalent_json_entries_in_array(my_array) {
-  if (my_array.length == 1 || my_array.length == 0) {
-	 return true;
-  }
-  for (i=0; i < my_array.length; i++) {
-	 if (i > 0 && !isJSONEquivalent(my_array[i], my_array[i-1])) {
-	   return false;
-	 }
-  }
-  return true;
+function equivalent_objects_in_array(my_array) {
+	if (my_array.length == 1 || my_array.length == 0) {
+		return true;
+	}
+	for (var i = 1; i < my_array.length; i++) {
+		if (!deepEquals(my_array[i], my_array[i-1])) {
+			return false;
+		}
+	}
+	return true;
 }
 
 // Database-layer API functions.
@@ -274,42 +287,44 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 		if (err) { console.warn(err); return; }
 		if (job.replication_factor == job.map_intermediate_data[work_unit_id.toString()].length) {
 			// We've now received 'replication_factor' number of responses for the same work unit.
-			if (equvalent_json_entries_in_array(job.map_intermediate_data[work_unit_id.toString()])) {
-				var response = JSON.parse(job.map_intermediate_data[work_unit_id.toString()][0]);
-				for (var key in response) {
-					if (response.hasOwnProperty(key)) {
-						var response_bucket = "validated_intermediate_result." + key;
-						var new_update_options = {};
-						var new_push_options = {};
-						new_push_options[response_bucket] = response[key];
-						new_update_options['$push'] = new_push_options;
-						new_update_options['$inc'] = { validated_intermediate_result_count : 1};
-						Job.findAndModify( { 'job_id':job_id.toString() }, [], new_update_options, { new: true }, function(err, newJob) {
-							if (newJob.initial_input_data_count == newJob.validated_intermediate_result_count) {
-								// Map phase is finished! We've received responses for every original data chunk.
-								// Convert the validated_intermediate_results dictionary into a reduce_data array for MongoDB atomic $pop-ing.
-								var reduce_data = [];
-								var reduce_data_count = 0;
-								for (var reduce_data_key in newJob.validated_intermediate_result) {
-									// Create a new WorkUnit object for each chunk of work to be completed in the reduce phase.
-									reduce_key_value_pair = {};
-									reduce_key_value_pair[reduce_data_key] = newJob.validated_intermediate_result[reduce_data_key];
-									var new_work_unit = new WorkUnit();
-									new_work_unit.data = JSON.stringify(reduce_key_value_pair);
-									new_work_unit.save();
-									reduce_data_count++;
-									for (var i = 0; i < job.replication_factor; i++) {
-										reduce_data.push(new_work_unit);
+			if (equivalent_arrays_in_array(job.map_intermediate_data[work_unit_id.toString()])) {
+				var responseArray = job.map_intermediate_data[work_unit_id.toString()][0];
+				responseArray.forEach(function(response) {
+					for (var key in response) {
+						if (response.hasOwnProperty(key)) {
+							var response_bucket = "validated_intermediate_result." + key;
+							var new_update_options = {};
+							var new_push_options = {};
+							new_push_options[response_bucket] = response[key];
+							new_update_options['$push'] = new_push_options;
+							new_update_options['$inc'] = { validated_intermediate_result_count : 1};
+							Job.findAndModify( { 'job_id':job_id.toString() }, [], new_update_options, { new: true }, function(err, newJob) {
+								if (newJob.initial_input_data_count == newJob.validated_intermediate_result_count) {
+									// Map phase is finished! We've received responses for every original data chunk.
+									// Convert the validated_intermediate_results dictionary into a reduce_data array for MongoDB atomic $pop-ing.
+									var reduce_data = [];
+									var reduce_data_count = 0;
+									for (var reduce_data_key in newJob.validated_intermediate_result) {
+										// Create a new WorkUnit object for each chunk of work to be completed in the reduce phase.
+										reduce_key_value_pair = {};
+										reduce_key_value_pair[reduce_data_key] = newJob.validated_intermediate_result[reduce_data_key];
+										var new_work_unit = new WorkUnit();
+										new_work_unit.data = JSON.stringify(reduce_key_value_pair);
+										new_work_unit.save();
+										reduce_data_count++;
+										for (var i = 0; i < job.replication_factor; i++) {
+											reduce_data.push(new_work_unit);
+										}
 									}
+									Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data:reduce_data, reduce_data_count:reduce_data_count, phase: "Reduce" } }, {}, function(err) {
+										if (err) { console.warn(err); return; }
+										callback();
+									});
 								}
-								Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data:reduce_data, reduce_data_count:reduce_data_count, phase: "Reduce" } }, {}, function(err) {
-									if (err) { console.warn(err); return; }
-									callback();
-								});
-							}
-						});
+							});
+						}
 					}
-				}
+				});
 			} else {
 				// We received conflicting responses for this work unit.
 				// TODO: Handle.
@@ -334,8 +349,8 @@ function enqueue_final_result(job_id, work_unit_id, result, callback) {
 		if (err) { console.warn(err); return; }
 		if (job.replication_factor == job.reduce_intermediate_data[work_unit_id.toString()].length) {
 			// We've now received 'replication_factor' number of responses for the same work unit.
-			if (equvalent_json_entries_in_array(job.reduce_intermediate_data[work_unit_id.toString()])) {
-				var response = JSON.parse(job.reduce_intermediate_data[work_unit_id.toString()][0]);
+			if (equivalent_objects_in_array(job.reduce_intermediate_data[work_unit_id.toString()])) {
+				var response = job.reduce_intermediate_data[work_unit_id.toString()][0];
 				
 				// Add the validated response to the output_data array. Then check to see if we're finished with the job.
 				Job.findAndModify( { 'job_id':job_id.toString() }, [], { $push: { output_data : response } }, { new: true }, function(err, updatedJob) {
