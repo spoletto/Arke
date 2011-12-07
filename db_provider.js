@@ -177,10 +177,13 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 	};
 	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $push: { intermediate_data: intermediate_result }, $inc : { intermediate_data_count: 1 } }, { new: true }, function(err, job) {
 		if (job.initial_input_data_count == job.intermediate_data_count) {
-			job.phase = "Shuffle";
-			job.active = false;
-			job.save(function(err) {
-				callback(job_id, job.intermediate_data);
+			// Actually grab the live job object rather than a static snapshot.
+			Job.findOne({ 'job_id':job_id.toString() }, function(err, realJob) {
+				realJob.phase = "Shuffle";
+				realJob.active = false;
+				realJob.save(function(err) {
+					callback(job_id, job.intermediate_data);
+				});
 			});
 		}
 	});
