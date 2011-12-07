@@ -162,6 +162,16 @@ function dequeue_map_work(job_id, callback) {
 }
 
 /*
+ * Enqueue a unit of work back into the job's map_data queue.
+ * This is useful when a client disconnects, for instance.
+ */
+function enqueue_map_work(job_id, work_unit_id) {
+	Job.update({ 'job_id':job_id.toString() }, { $push: { map_data : work_unit_id } }, {}, function(err) {
+		// TODO: Handle error.
+	});
+}
+
+/*
  * Same as dequeue_map_work, but for the reduce phase of operation.
  */
 function dequeue_reduce_work(job_id, callback) {
@@ -174,6 +184,16 @@ function dequeue_reduce_work(job_id, callback) {
 		WorkUnit.findOne({
 			_id:work_unit_id
 		}, callback);
+	});
+}
+
+/*
+ * Enqueue a unit of work back into the job's reduce data queue.
+ * This is useful when a client disconnects, for instance.
+ */
+function enqueue_reduce_work(job_id, work_unit_id) {
+	Job.update({ 'job_id':job_id.toString() }, { $push: { sorted_intermediate_data : work_unit_id } }, {}, function(err) {
+		// TODO: Handle error.
 	});
 }
 
@@ -250,4 +270,6 @@ exports.add_new_job = add_new_job;
 exports.dequeue_reduce_work = dequeue_reduce_work;
 exports.enqueue_intermediate_result = enqueue_intermediate_result;
 exports.enqueue_final_result = enqueue_final_result;
+exports.enqueue_map_work = enqueue_map_work;
+exports.enqueue_reduce_work = enqueue_reduce_work;
 
