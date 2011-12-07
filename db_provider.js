@@ -23,6 +23,7 @@ var User = new Schema({
 
 var Job = new Schema({
 	job_id : String, // This is a string version of the job's ObjectId.
+	phase : String, // ["Map", "Shuffle", "Reduce"]
 	creator : String, // Login of the user who created the job.
 	map : String, // Filename for the map function.
 	reduce : String, // Filename for the reduce function.
@@ -33,7 +34,7 @@ var Job = new Schema({
 	sorted_intermediate_data : [ ObjectId ],
 	output_data : [ ObjectId ],
 	worker_count : Number, // The number of workers actively mapping/reducing for this job.
-	active : Boolean // A job is active from the time it is created until when it finishes.
+	active : Boolean // A job is active whenever it is in the "Map" or "Reduce" phase.
 })
 
 var WorkUnit = new Schema({
@@ -78,9 +79,10 @@ function add_new_user(login, password, callback) {
 /*
  * Create a new job object with the parameters specified. The
  * input_data should be an array of key-value pairs suitable for
- * shipping to worker nodes.
+ * shipping to worker nodes. Callback should be of the form: function (err, job).
+ * The callback provides the newly created job object to the caller.
  */
-function add_new_job(creator_login, map, reduce, input_data) {
+function add_new_job(creator_login, map, reduce, input_data, replication_factor, callback) {
 	// Ensure the specified user exists.
 	User.findOne({
 		login:creator_login
@@ -92,6 +94,7 @@ function add_new_job(creator_login, map, reduce, input_data) {
 	
 	function add_job_to_user(user) {
 		var new_job = new Job();
+		new_job.phase = "Map";
 		new_job.job_id = new_job._id.toString();
 		new_job.creator = creator_login;
 		new_job.map = map;
@@ -109,13 +112,16 @@ function add_new_job(creator_login, map, reduce, input_data) {
 			var new_work_unit = new WorkUnit();
 			new_work_unit.data = item;
 			new_work_unit.save();
-			map_tasks.push(new_work_unit._id);
+			for (var i = 0; i < replication_factor; i++) {
+				map_tasks.push(new_work_unit._id);
+			}
 		})
 		new_job.initial_input_data_count = map_tasks.length;
 		new_job.input_data = map_tasks;
 		new_job.save();
 		user.jobs.push(new_job._id);
 		user.save();
+		callback(new_job);
 	}
 }
 
@@ -130,7 +136,7 @@ function add_new_job(creator_login, map, reduce, input_data) {
  * caller can assume this job has no pending map work units.
  */
 function dequeue_map_work(job_id, callback) {
-	Job.findAndModify({ 'job_id':job_id }, [], { $pop: { input_data : -1 } }, { new: false }, function(err, job) {
+	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { input_data : -1 } }, { new: false }, function(err, job) {
 		if (err) { console.warn(err.message); return; }
 		if (!job) { console.warn("No job found."); return; }
 		if (!job.input_data.length) { callback(null, null); return; }
@@ -143,28 +149,40 @@ function dequeue_map_work(job_id, callback) {
 }
 
 /*
- * Enqueue
-Dequeue a unit of work from the job's input_data
- * queue. The job_id specified should be the ObjectId
- * of the job object in the database. Upon success,
- * the callback will be invoked with the unit of work
- * dequeued. Callback should be of the form
- * function (err, work_unit). If the work_unit provided
- * to the callback is null and there is no error, the
- * caller can assume this job has no pending map work units.
+ * Same as dequeue_map_work, but for the reduce phase of operation.
  */
-/*function enqueue_intermediate_data(job_id, intermediate_result) {
-	Job.findAndModify({ 'job_id':job_id }, [], { $pop: { input_data : -1 } }, { new: false }, function(err, job) {
+function dequeue_reduce_work(job_id, callback) {
+	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { sorted_intermediate_data : -1 } }, { new: false }, function(err, job) {
 		if (err) { console.warn(err.message); return; }
 		if (!job) { console.warn("No job found."); return; }
+		if (!job.sorted_intermediate_data.length) { callback(null, null); return; }
 		
-		var work_unit = null;
-		if (job.input_data.length) {
-			work_unit = job.input_data[0];
-		}
-		callback(null, work_unit);
+		var work_unit_id = job.sorted_intermediate_data[0];
+		WorkUnit.findOne({
+			_id:work_unit_id
+		}, callback);
 	});
-}*/
+}
+
+/*
+ * Enqueue a key-value pair as an intermediate result from the map
+ * phase of operation.
+ */
+function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
+	var intermediate_result = {
+		"work_unit_id" : work_unit_id.toString(),
+		"result" : result
+	};
+	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $push: { intermediate_data: intermediate_result }, $inc : { intermediate_data_count: 1 } }, { new: true }, function(err, job) {
+		if (job.initial_input_data_count == job.intermediate_data_count) {
+			job.phase = "Shuffle";
+			job.active = False;
+			job.save(function(err) {
+				callback(job_id, job.intermediate_data);
+			});
+		}
+	});
+}
 
 /*
  * Returns all currently active jobs via the callback.
