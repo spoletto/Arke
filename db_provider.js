@@ -23,17 +23,25 @@ var User = new Schema({
 
 var Job = new Schema({
 	job_id : String, // This is a string version of the job's ObjectId.
-	phase : String, // ["Map", "Shuffle", "Reduce"]
+	phase : String, // ["Map", "Shuffle", "Reduce", "Finished"]
 	creator : String, // Login of the user who created the job.
 	map : String, // Filename for the map function.
 	reduce : String, // Filename for the reduce function.
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
 	map_data : [ ObjectId ], // A mutable copy of the input_data, from which we dequeue work units.
 	initial_input_data_count : Number, // The number of WorkUnits in the input_data to begin.
-	intermediate_data : [ ObjectId ],
+	intermediate_data : [ {
+		work_unit_id : String,
+		result : String
+	} ],
 	intermediate_data_count : Number, // The number of responses added into the intermediate_data array.
 	sorted_intermediate_data : [ ObjectId ],
-	output_data : [ ObjectId ],
+	reduce_data_count : Number,
+	output_data : [ {
+		work_unit_id : String,
+		result : String
+	} ],
+	output_data_count : Number,
 	worker_count : Number, // The number of workers actively mapping/reducing for this job.
 	active : Boolean // A job is active whenever it is in the "Map" or "Reduce" phase.
 })
@@ -170,7 +178,9 @@ function dequeue_reduce_work(job_id, callback) {
 
 /*
  * Enqueue a key-value pair as an intermediate result from the map
- * phase of operation.
+ * phase of operation. Callback should be of the form function (job_id, intermediate_data_array).
+ * The job's phase will be set to "Shuffle" and its active flag set to false before the
+ * callback is invoked.
  */
 function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 	var intermediate_result = {
@@ -190,6 +200,31 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 		}
 	});
 }
+
+/*
+ * Same as enqueue_intermediate_result, but for the reduce phase of operation.
+ * Callback should be of the form function (job_id, final_output_data_array).
+ * The job's phase will be set to "Finished" and its active flag set to false before the
+ * callback is invoked.
+ */
+function enqueue_final_result(job_id, work_unit_id, result, callback) {
+	var final_result = {
+		"work_unit_id" : work_unit_id.toString(),
+		"result" : result
+	};
+	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $push: { output_data: final_result }, $inc : { output_data_count: 1 } }, { new: true }, function(err, job) {
+		if (job.reduce_data_count == job.output_data_count) {
+			// Actually grab the live job object rather than a static snapshot.
+			Job.findOne({ 'job_id':job_id.toString() }, function(err, realJob) {
+				realJob.phase = "Finished";
+				realJob.active = false;
+				realJob.save(function(err) {
+					callback(job_id, job.output_data);
+				});
+			});
+		}
+	});
+}	
 
 /*
  * Returns all currently active jobs via the callback.
