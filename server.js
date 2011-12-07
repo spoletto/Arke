@@ -6,8 +6,9 @@
 
 var connect = require('connect'),
     express = require('express'),
-	db = require('./db_provider');
-	config = require('./config')
+	db = require('./db_provider'),
+	config = require('./config'),
+	bcrypt = require('bcrypt');
 
 var DUPLICATE_KEY_ERROR_CODE = 11000;
 
