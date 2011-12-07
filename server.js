@@ -119,7 +119,7 @@ app.post('/register', function(req, res) {
 		// New user was successfully saved to the database.
 		// Record the email address in the session object.
 		req.session.email_address = email_address;
-		res.json(status : 'registration_successful');
+		res.json({status : 'registration_successful'});
 		return;
 	});
 });
@@ -129,12 +129,14 @@ app.listen(8000);
 var io = require('socket.io').listen(app);
 
 io.sockets.on('connection', function (socket) {
-    var tasks = {};
+    var tasks = {length: 0};
 
     socket.on('disconnect', function(){
         console.log(socket.id + ' disconnected');
         restoreTasks(tasks);
     });
+
+    socket.on('getTasks', sendTasks);
 
     socket.on('emit', function(data){
         /* TODO this entry's existence should be asserted to some extent */
@@ -151,6 +153,9 @@ io.sockets.on('connection', function (socket) {
         } else if(data.phase == "Reduce"){ 
             commit_final_result(data.jobid, data.chunkid, tasks[data.jobid][data.phase][data.chunkid]);
         }
+        /* error check commits then do this, probably */
+        tasks.length--;
+        delete tasks[data.jobid][data.phase][data.chunkid];
         sendTasks();
     });
 
@@ -158,6 +163,12 @@ io.sockets.on('connection', function (socket) {
         if(tasks.length < MAX_TASKS_PER_WORKER){
             getTask(function(err, task){
                 if(err){
+                    /*TODO */
+                    return;
+                }
+
+                if(task == null){
+                    socket.emit('wait');
                     return;
                 }
 
@@ -171,6 +182,7 @@ io.sockets.on('connection', function (socket) {
 
                 /* TODO assert chunkid not already there */
                 tasks[data.jobid][data.phase][data.chunkid] = {};
+                tasks.length++;
                 socket.emit('task', task);
                 sendTasks();
             })
@@ -182,7 +194,6 @@ io.sockets.on('connection', function (socket) {
 
 function getTask(callback){
     db.all_active_jobs(function(err, jobs){
-        /* main TODO: how do deal with no active jobs, i.e. how do workers idle */
         if(err || jobs.length == 0) return false;    
 
         var job = jobs[Math.floor(Math.random()*jobs.length)];
