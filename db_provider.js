@@ -259,7 +259,7 @@ function enqueue_reduce_work(job_id, work_unit_id) {
  * so that once all the map data chunks have been processed, we can switch into
  * the reduce phase without an expensive in-memory shuffle phase.
  */
-function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
+function enqueue_intermediate_result(job_id, work_unit_id, result) {
 	var work_unit_bucket = "intermediate_data." + work_unit_id.toString();	
 	var update_options = {};
 	var push_options = {};
@@ -286,7 +286,7 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 								// Convert the validated_intermediate_results dictionary into a reduce_data array for MongoDB atomic $pop-ing.
 								var reduce_data = []
 								for (var reduce_data_key in newJob.validated_intermediate_result) {
-									// Create a new WorkUnit work each chunk of work to be completed in the reduce phase.
+									// Create a new WorkUnit object for each chunk of work to be completed in the reduce phase.
 									reduce_key_value_pair = {};
 									reduce_key_value_pair[reduce_data_key] = newJob.validated_intermediate_result[reduce_data_key];
 									var new_work_unit = new WorkUnit();
