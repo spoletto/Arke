@@ -259,8 +259,11 @@ function enqueue_reduce_work(job_id, work_unit_id) {
  * The validated_intermediate_results dictionary groups validated responses by key
  * so that once all the map data chunks have been processed, we can switch into
  * the reduce phase without an expensive in-memory shuffle phase.
+ *
+ * The callback is invoked when the transition from Map phase to Reduce phase is
+ * complete. The callback should be of the form: function().
  */
-function enqueue_intermediate_result(job_id, work_unit_id, result) {
+function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 	var work_unit_bucket = "map_intermediate_data." + work_unit_id.toString();	
 	var update_options = {};
 	var push_options = {};
@@ -285,7 +288,8 @@ function enqueue_intermediate_result(job_id, work_unit_id, result) {
 							if (newJob.initial_input_data_count == newJob.validated_intermediate_result_count) {
 								// Map phase is finished! We've received responses for every original data chunk.
 								// Convert the validated_intermediate_results dictionary into a reduce_data array for MongoDB atomic $pop-ing.
-								var reduce_data = []
+								var reduce_data = [];
+								var reduce_data_count = 0;
 								for (var reduce_data_key in newJob.validated_intermediate_result) {
 									// Create a new WorkUnit object for each chunk of work to be completed in the reduce phase.
 									reduce_key_value_pair = {};
@@ -293,10 +297,14 @@ function enqueue_intermediate_result(job_id, work_unit_id, result) {
 									var new_work_unit = new WorkUnit();
 									new_work_unit.data = JSON.stringify(reduce_key_value_pair);
 									new_work_unit.save();
-									reduce_data.push(new_work_unit);
+									reduce_data_count++;
+									for (var i = 0; i < job.replication_factor; i++) {
+										reduce_data.push(new_work_unit);
+									}
 								}
-								Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data:reduce_data, reduce_data_count:reduce_data.length, phase: "Reduce" } }, {}, function(err) {
+								Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data:reduce_data, reduce_data_count:reduce_data_count, phase: "Reduce" } }, {}, function(err) {
 									if (err) { console.warn(err); return; }
+									callback();
 								});
 							}
 						});
@@ -313,8 +321,9 @@ function enqueue_intermediate_result(job_id, work_unit_id, result) {
 
 /*
  * Same as enqueue_intermediate_result, but for the reduce phase of operation.
+ * The callback is invoked when the job is completed. The callback is of the form: function().
  */
-function enqueue_final_result(job_id, work_unit_id, result) {
+function enqueue_final_result(job_id, work_unit_id, result, callback) {
 	var work_unit_bucket = "reduce_intermediate_data." + work_unit_id.toString();
 	var update_options = {};
 	var push_options = {};
@@ -325,8 +334,8 @@ function enqueue_final_result(job_id, work_unit_id, result) {
 		if (err) { console.warn(err); return; }
 		if (job.replication_factor == job.reduce_intermediate_data[work_unit_id.toString()].length) {
 			// We've now received 'replication_factor' number of responses for the same work unit.
-			if (equvalent_json_entries_in_array(job.intermediate_data[work_unit_id.toString()])) {
-				var response = JSON.parse(job.intermediate_data[work_unit_id.toString()][0]);
+			if (equvalent_json_entries_in_array(job.reduce_intermediate_data[work_unit_id.toString()])) {
+				var response = JSON.parse(job.reduce_intermediate_data[work_unit_id.toString()][0]);
 				
 				// Add the validated response to the output_data array. Then check to see if we're finished with the job.
 				Job.findAndModify( { 'job_id':job_id.toString() }, [], { $push: { output_data : response } }, { new: true }, function(err, updatedJob) {
@@ -334,6 +343,7 @@ function enqueue_final_result(job_id, work_unit_id, result) {
 					if (updatedJob.output_data.length == updatedJob.reduce_data_count) {
 						Job.update( { 'job_id':job_id.toString() }, { $set : { phase: "Finished", active: false } }, {}, function(err) {
 							if (err) { console.warn(err); return; }
+							callback();
 						});
 					}
 				});
