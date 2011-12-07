@@ -334,7 +334,7 @@ function enqueue_final_result(job_id, work_unit_id, result) {
 					if (updatedJob.output_data.length == updatedJob.reduce_data_count) {
 						Job.update( { 'job_id':job_id.toString() }, { $set : { phase: "Finished", active: false } }, {}, function(err) {
 							if (err) { console.warn(err); return; }
-						}
+						});
 					}
 				});
 			} else {
