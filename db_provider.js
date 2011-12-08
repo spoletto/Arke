@@ -422,4 +422,5 @@ exports.enqueue_intermediate_result = enqueue_intermediate_result;
 exports.enqueue_final_result = enqueue_final_result;
 exports.enqueue_map_work = enqueue_map_work;
 exports.enqueue_reduce_work = enqueue_reduce_work;
+exports.reset_job = reset_job;
 
