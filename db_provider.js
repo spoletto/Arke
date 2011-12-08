@@ -386,6 +386,29 @@ function is_job_active(jobid, callback){
     });
 }
 
+/*
+ * Resets a job to its initial state.
+ */
+function reset_job(job_id) {
+	Job.findOne({ 'job_id':job_id.toString() }, function(err, job) {
+		Job.update({ 'job_id':job_id.toString() }, 
+			{
+				active : true,
+				intermediate_keys : [],
+				map_data : job.input_data,
+				map_intermediate_data : {},
+				output_data : [],
+				phase : "Map",
+				reduce_data : [],
+				reduce_data_count : 0,
+				reduce_intermediate_data : {},
+				validated_intermediate_result : {},
+				validated_intermediate_result_count : 0
+			}, {}, function(err) {
+				if (err) { console.warn(err); return; }
+			});
+	});
+}
 
 // Now export the schemas publicly so other modules
 // can perform actions such as User.findOne(...)
