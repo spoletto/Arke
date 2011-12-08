@@ -15,7 +15,9 @@ socket.on('disconnect', function(){
 
 /* XXX how to prune dead workers? multiple workers for one jobid? */
 socket.on('task', function(data){
+    console.log('received task', data);
     clearInterval();
+    /* TODO lock the worker while its being created */
     var jobid = data.jobid;
     if(!(jobid in workers)){
         workers[jobid] = new MessagingWorker(jobid);
@@ -24,6 +26,7 @@ socket.on('task', function(data){
 });
 
 socket.on('wait', function(){
+    console.log('waiting');
     setInterval(function(){
         socket.emit('getTasks');
     }, WAIT_TIME);
@@ -32,10 +35,11 @@ socket.on('wait', function(){
 socket.on('kill', function(jobid){
     /* should probably keep track of active tasks in worker and assert
      * that they are finished before terminating the worker. */
+    console.log('killing', jobid);
     if(jobid in workers){
         workers[jobid].worker.terminate();
     }
-}
+});
 
 function MessagingWorker(jobid){
     this.jobid = jobid;
