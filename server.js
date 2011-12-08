@@ -23,6 +23,7 @@ app.configure(function() {
 	app.use(express.session({secret : SESSION_COOKIE_SECRET})); 
     app.use(app.router);
     app.use('/client', express.static(__dirname + '/client'));
+	app.use('/jobs', express.static(__dirname + '/jobs'));
 });
 
 app.get('/', function(req, res){
