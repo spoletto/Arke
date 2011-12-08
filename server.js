@@ -134,9 +134,11 @@ var MAX_TASKS_PER_WORKER = 4;
 var MAX_CHUNKS_PER_TASK = 1;
 
 io.sockets.on('connection', function (socket) {
+    console.log(socket.id, 'connected');
     var tasks = {};
 
     socket.on('disconnect', function(){
+        console.log(socket.id, 'disconnected');
         for(jobid in tasks){
             var enqueue;
             if(tasks.phase == "Map"){
@@ -153,6 +155,7 @@ io.sockets.on('connection', function (socket) {
     socket.on('getTasks', getTasks);
 
     socket.on('emit', function(data){
+        console.log(socket.id, 'emitted kv for chunk', data.chunkid, 'of task', data.jobid);
         /* this entry's existence should be asserted to some extent */
         tasks[data.jobid].chunks[data.chunkid].append(
             {key: data.key, value: data.value}
@@ -160,6 +163,7 @@ io.sockets.on('connection', function (socket) {
     });
 
     socket.on('done', function(data){
+        console.log(socket.id, 'finished chunk', data.chunkid, 'of task', data.jobid);
         /* todo: data validity and this entry's existence should be asserted to some extent */
         /* assert task is in that phase */
         if(data.phase == "Map"){
@@ -174,6 +178,7 @@ io.sockets.on('connection', function (socket) {
     });
 
     function getChunksForTask(jobid){
+        console.log(socket.id, 'getting chunks for task', jobid);
         if(nkeys(tasks[jobid]) < MAX_CHUNKS_PER_TASK){
             db.is_job_active(jobid, function(active, phase){
                 if(active){
@@ -211,8 +216,11 @@ io.sockets.on('connection', function (socket) {
     }
 
     function getTasks(){
+        console.log(socket.id, 'getting tasks');
         if(nkeys(tasks) < MAX_TASKS_PER_WORKER){
+            console.log("hitting db");
             db.all_active_jobs(function(err, jobs){
+                console.log("got response from db");
                 if(err) { console.warn(err); return; }
 
                 if(jobs.length <= nkeys(tasks)){
