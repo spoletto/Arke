@@ -404,6 +404,7 @@ function is_job_active(jobid, callback){
 /*
  * Resets a job to its initial state.
  */
+// TODO: There is a bug here. Reset only supports replication_factor = 1.
 function reset_job(job_id) {
 	Job.findOne({ 'job_id':job_id.toString() }, function(err, job) {
 		Job.update({ 'job_id':job_id.toString() }, 
