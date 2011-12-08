@@ -375,10 +375,10 @@ function all_active_jobs(callback) {
 
 /* XXX pass err to callback? */
 function is_job_active(jobid, callback){
-    Jobs.find( {'job_id' : jobid }, function(err, job){
+    Job.findOne( {'job_id' : jobid }, function(err, job){
         if(err) { console.warn(err); return; }
         if(!job) { callback(false); }
-        callback(job.active);
+        callback(job.active, job.phase);
     });
 }
 
@@ -422,4 +422,5 @@ exports.enqueue_intermediate_result = enqueue_intermediate_result;
 exports.enqueue_final_result = enqueue_final_result;
 exports.enqueue_map_work = enqueue_map_work;
 exports.enqueue_reduce_work = enqueue_reduce_work;
+exports.is_job_active = is_job_active;
 

@@ -143,9 +143,9 @@ io.sockets.on('connection', function (socket) {
         for(jobid in tasks){
             var enqueue;
             if(tasks.phase == "Map"){
-                enqueue = enqueue_map_work;
+                enqueue = db.enqueue_map_work;
             } else {
-                enqueue = enqueue_reduce_work;
+                enqueue = db.enqueue_reduce_work;
             }
             for(chunkid in tasks[jobid]){
                 enqueue(jobid, chunkid);
@@ -157,8 +157,9 @@ io.sockets.on('connection', function (socket) {
 
     socket.on('emit', function(data){
         console.log(socket.id, 'emitted kv for chunk', data.chunkid, 'of task', data.jobid);
+        console.dir(data);
         /* this entry's existence should be asserted to some extent */
-        tasks[data.jobid].chunks[data.chunkid].append(
+        tasks[data.jobid].chunks[data.chunkid].push(
             {key: data.key, value: data.value}
         );
     });
@@ -168,9 +169,9 @@ io.sockets.on('connection', function (socket) {
         /* todo: data validity and this entry's existence should be asserted to some extent */
         /* assert task is in that phase */
         if(data.phase == "Map"){
-            enqueue_intermediate_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
+            db.enqueue_intermediate_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
         } else if(data.phase == "Reduce"){ 
-            commit_final_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
+            db.commit_final_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
         }
 
         /* error check commits then do this, probably */
@@ -180,34 +181,39 @@ io.sockets.on('connection', function (socket) {
 
     function getChunksForTask(jobid){
         console.log(socket.id, 'getting chunks for task', jobid);
-        if(nkeys(tasks[jobid]) < MAX_CHUNKS_PER_TASK){
+        if(nkeys(tasks[jobid].chunks) < MAX_CHUNKS_PER_TASK){
             db.is_job_active(jobid, function(active, phase){
                 if(active){
+                    console.log('active job', jobid, 'in phase', phase);
 
                     var dequeue;
-                    if(job.phase == "Map"){
-                        dequeue = dequeue_map_work;
-                    } else if(job.phase == "Reduce"){
-                        dequeue = dequeue_map_reduce;
+                    if(phase == "Map"){
+                        dequeue = db.dequeue_map_work;
+                    } else if(phase == "Reduce"){
+                        dequeue = db.dequeue_reduce_work;
                     }
 
-                    dequeue(job._id, function(err, work_unit){
+                    dequeue(jobid, function(err, work_unit){
+                        if(err) {console.warn(err); return;}
                         if(!err && work_unit == null)
                             getChunksForTask(jobid);
 
-                        var task = {phase: job.phase,
-                                    jobid: job._id,
+                        console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
+
+                        var task = {phase: phase,
+                                    jobid: jobid,
                                     chunkid: work_unit._id,
                                     data: work_unit.data};
 
                         /* if phase is changing, assert that nchunks is  0 */
-                        tasks[jobid].chunks[task.chunkid] = {};
+                        tasks[jobid].chunks[task.chunkid] = [];
                         tasks[jobid].phase = phase;
                         socket.emit('task', task);
                         getChunksForTask(jobid);
                     });
 
                 } else if(nkeys(tasks[jobid].chunks) == 0){
+                    console.log('killing job');
                     delete tasks[jobid];
                     socket.emit('kill', jobid);
                     getTasks();
@@ -219,12 +225,13 @@ io.sockets.on('connection', function (socket) {
     function getTasks(){
         console.log(socket.id, 'getting tasks');
         if(nkeys(tasks) < MAX_TASKS_PER_WORKER){
-            console.log("hitting db");
             db.all_active_jobs(function(err, jobs){
-                console.log("got response from db");
+                console.log("got jobs from db");
+                console.dir(tasks);
                 if(err) { console.warn(err); return; }
 
                 if(jobs.length <= nkeys(tasks)){
+                    console.log('waiting since lesseq jobs',jobs.length,'than current tasks', nkeys(tasks)); 
                     socket.emit('wait');
                     return;
                 }
