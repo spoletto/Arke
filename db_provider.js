@@ -261,8 +261,8 @@ function dequeue_reduce_work(job_id, callback) {
  * Enqueue a unit of work back into the job's reduce data queue.
  * This is useful when a client disconnects, for instance.
  */
-function enqueue_reduce_work(job_id, work_unit_id) {
-	Job.update({ 'job_id':job_id.toString() }, { $push: { reduce_data : work_unit_id } }, {}, function(err) {
+function enqueue_reduce_work(job_id, work_key) {
+	Job.update({ 'job_id':job_id.toString() }, { $push: { intermediate_keys : work_key } }, {}, function(err) {
 		// TODO: Handle error.
 	});
 }
