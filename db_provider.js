@@ -248,7 +248,7 @@ function dequeue_reduce_work(job_id, callback) {
 		response['data'] = {
 			'key' : work_key,
 			'values' : value
-		}
+		};
 		callback(null, response);
 	});
 }
@@ -289,30 +289,39 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 		if (job.replication_factor == job.map_intermediate_data[work_unit_id.toString()].length) {
 			// We've now received 'replication_factor' number of responses for the same work unit.
 			if (equivalent_arrays_in_array(job.map_intermediate_data[work_unit_id.toString()])) {
+				var committed_responses = 0;
 				var responseArray = job.map_intermediate_data[work_unit_id.toString()][0];
-                console.log("RESPONSE ARRAY " + responseArray);
 				responseArray.forEach(function(response) {
-					for (var key in response) {
+					for (key in response) {
 						if (response.hasOwnProperty(key)) {
+							key = key.replace(/\./g, ""); // Mongo does not allow keys to end in a period.
 							var response_bucket = "validated_intermediate_result." + key;
-							var new_update_options = {};
 							var new_push_options = {};
-							var duplicated_key_set = [];
-							for (var j = 0; j < job.replication_factor; j++) {
-								duplicated_key_set.push(key);
-							}
-							new_push_all_options = {};
-							new_push_all_options['intermediate_keys'] = duplicated_key_set;
 							new_push_options[response_bucket] = response[key];
-							new_update_options['$push'] = new_push_options;
-							new_update_options['$inc'] = { validated_intermediate_result_count : 1 };
-							new_update_options['$pushAll'] = new_push_all_options;
-							Job.findAndModify( { 'job_id':job_id.toString() }, [], new_update_options, { new: true }, function(err, newJob) {
-								if (newJob.initial_input_data_count == newJob.validated_intermediate_result_count) {
-									// Map phase is finished! We've received responses for every original data chunk.
-									Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data_count:(newJob.intermediate_keys.length/job.replication_factor), phase: "Reduce" } }, {}, function(err) {
+							Job.findAndModify( { 'job_id':job_id.toString() }, [], { $push : new_push_options }, { new: true }, function(err, job) {
+								if (err) { console.warn(err); return; }
+								committed_responses++;
+								if (committed_responses == responseArray.length) {
+									// We've now committed every key-value pair in the response array to the database. 
+									Job.findAndModify( { 'job_id':job_id.toString() }, [], { $inc: { validated_intermediate_result_count : 1 } }, { new: true }, function(err, newJob) {
 										if (err) { console.warn(err); return; }
-										if (callback) { callback(); }
+										if (newJob.initial_input_data_count == newJob.validated_intermediate_result_count) {
+											// Map phase is finished! We've received responses for every original data chunk.
+											console.log("MAP PHASE FINISHED");
+											
+											var duplicated_key_set = [];
+											var reduce_data_count = 0;
+											for (var inserted_key in newJob.validated_intermediate_result) {
+												reduce_data_count++;
+												for (var j = 0; j < newJob.replication_factor; j++) {
+													duplicated_key_set.push(inserted_key);
+												}
+											}
+											Job.findAndModify( { 'job_id':job_id.toString() }, [], { $pushAll : { 'intermediate_keys' : duplicated_key_set }, $set : { 'phase' : 'Reduce', 'reduce_data_count' : reduce_data_count } }, { new: true }, function(err, finalJob) {
+												if (err) { console.warn(err); return; }
+												if (callback) { callback(); }
+											});
+										}
 									});
 								}
 							});
@@ -344,17 +353,26 @@ function enqueue_final_result(job_id, key, result, callback) {
 		if (job.replication_factor == job.reduce_intermediate_data[key].length) {
 			// We've now received 'replication_factor' number of responses for the same work unit.
 			if (equivalent_arrays_in_array(job.reduce_intermediate_data[key])) {
-				var response = job.reduce_intermediate_data[key][0];
-				
-				// Add the validated response to the output_data array. Then check to see if we're finished with the job.
-				Job.findAndModify( { 'job_id':job_id.toString() }, [], { $push: { output_data : response } }, { new: true }, function(err, updatedJob) {
-					if (err) { console.warn(err); return; }
-					if (updatedJob.output_data.length == updatedJob.reduce_data_count) {
-						Job.update( { 'job_id':job_id.toString() }, { $set : { phase: "Finished", active: false } }, {}, function(err) {
-							if (err) { console.warn(err); return; }
-							if (callback) { callback(); }
-						});
-					}
+				var committed_responses = 0;
+				var responseArray = job.reduce_intermediate_data[key][0];
+				responseArray.forEach(function(response) {			
+					// Add the validated response to the output_data array. Then check to see if we're finished with the job.
+					Job.findAndModify( { 'job_id':job_id.toString() }, [], { $push: { output_data : response }}, { new: true }, function(err, updatedJob) {
+						if (err) { console.warn(err); return; }
+						committed_responses++;
+						if (committed_responses == responseArray.length) {
+							Job.findAndModify( { 'job_id':job_id.toString() }, [], { $inc: { validated_final_result_count : 1 }}, { new: true }, function(err, finalJob) {
+								if (err) { console.warn(err); return; }
+								if (finalJob.validated_final_result_count == updatedJob.reduce_data_count) {
+									console.log("FINISHED REDUCE PHASE");
+									Job.update( { 'job_id':job_id.toString() }, { $set : { phase: "Finished", active: false } }, {}, function(err) {
+										if (err) { console.warn(err); return; }
+										if (callback) { callback(); }
+									});
+								}
+							});
+						}
+					});
 				});
 			} else {
 				// We received conflicting responses for this work unit.
@@ -400,7 +418,8 @@ function reset_job(job_id) {
 				reduce_data_count : 0,
 				reduce_intermediate_data : {},
 				validated_intermediate_result : {},
-				validated_intermediate_result_count : 0
+				validated_intermediate_result_count : 0,
+				validated_final_result_count : 0
 			}, {}, function(err) {
 				if (err) { console.warn(err); return; }
 			});
