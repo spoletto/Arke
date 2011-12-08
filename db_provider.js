@@ -248,7 +248,11 @@ function dequeue_reduce_work(job_id, callback) {
 		var work_key = job.intermediate_keys[0];
 		var value = job.validated_intermediate_result[work_key];
 		var response = {};
-		response[work_key] = value;
+		response['_id'] = work_key;
+		response['data'] = {
+			'key' : work_key,
+			'values' : value
+		}
 		callback(null, response);
 	});
 }
