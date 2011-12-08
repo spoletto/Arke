@@ -311,7 +311,7 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 									// Map phase is finished! We've received responses for every original data chunk.
 									Job.update( { 'job_id':job_id.toString() }, { $set : { reduce_data_count:(newJob.intermediate_keys.length/job.replication_factor), phase: "Reduce" } }, {}, function(err) {
 										if (err) { console.warn(err); return; }
-										callback();
+										if (callback) { callback(); }
 									});
 								}
 							});
@@ -351,7 +351,7 @@ function enqueue_final_result(job_id, key, result, callback) {
 					if (updatedJob.output_data.length == updatedJob.reduce_data_count) {
 						Job.update( { 'job_id':job_id.toString() }, { $set : { phase: "Finished", active: false } }, {}, function(err) {
 							if (err) { console.warn(err); return; }
-							callback();
+							if (callback) { callback(); }
 						});
 					}
 				});
