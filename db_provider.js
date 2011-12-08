@@ -26,8 +26,6 @@ var Job = new Schema({
 	job_id : String, // This is a string version of the job's ObjectId.
 	phase : String, // ["Map", "Shuffle", "Reduce", "Finished"]
 	creator : String, // Email address of the user who created the job.
-	map : String, // Filename for the map function.
-	reduce : String, // Filename for the reduce function.
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
 	map_data : [ ObjectId ], // A mutable copy of the input_data, from which we dequeue work units.
 	reduce_data : [ ObjectId ],
@@ -157,7 +155,7 @@ function add_new_user(email_address, password, callback) {
  * shipping to worker nodes. Callback should be of the form: function (err, job).
  * The callback provides the newly created job object to the caller.
  */
-function add_new_job(creator_email_address, map, reduce, input_data, replication_factor, callback) {
+function add_new_job(creator_email_address, input_data, replication_factor, callback) {
 	// Ensure the specified user exists.
 	User.findOne({
 		email_address:creator_email_address
@@ -172,8 +170,6 @@ function add_new_job(creator_email_address, map, reduce, input_data, replication
 		new_job.phase = "Map";
 		new_job.job_id = new_job._id.toString();
 		new_job.creator = creator_email_address;
-		new_job.map = map;
-		new_job.reduce = reduce;
 		new_job.active = true;
 		new_job.worker_count = 0;
 		new_job.replication_factor = replication_factor;
