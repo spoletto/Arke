@@ -290,6 +290,7 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 			// We've now received 'replication_factor' number of responses for the same work unit.
 			if (equivalent_arrays_in_array(job.map_intermediate_data[work_unit_id.toString()])) {
 				var responseArray = job.map_intermediate_data[work_unit_id.toString()][0];
+                console.log("RESPONSE ARRAY " + responseArray);
 				responseArray.forEach(function(response) {
 					for (var key in response) {
 						if (response.hasOwnProperty(key)) {
@@ -342,7 +343,7 @@ function enqueue_final_result(job_id, key, result, callback) {
 		if (err) { console.warn(err); return; }
 		if (job.replication_factor == job.reduce_intermediate_data[key].length) {
 			// We've now received 'replication_factor' number of responses for the same work unit.
-			if (equivalent_objects_in_array(job.reduce_intermediate_data[key])) {
+			if (equivalent_arrays_in_array(job.reduce_intermediate_data[key])) {
 				var response = job.reduce_intermediate_data[key][0];
 				
 				// Add the validated response to the output_data array. Then check to see if we're finished with the job.
@@ -423,4 +424,4 @@ exports.enqueue_final_result = enqueue_final_result;
 exports.enqueue_map_work = enqueue_map_work;
 exports.enqueue_reduce_work = enqueue_reduce_work;
 exports.is_job_active = is_job_active;
-
+exports.reset_job = reset_job;

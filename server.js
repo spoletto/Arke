@@ -157,11 +157,11 @@ io.sockets.on('connection', function (socket) {
 
     socket.on('emit', function(data){
         console.log(socket.id, 'emitted kv for chunk', data.chunkid, 'of task', data.jobid);
-        console.dir(data);
+        //console.dir(data);
         /* this entry's existence should be asserted to some extent */
-        tasks[data.jobid].chunks[data.chunkid].push(
-            {key: data.key, value: data.value}
-        );
+        var d = {};
+        d[data.key] = data.value;
+        tasks[data.jobid].chunks[data.chunkid].push(d);
     });
 
     socket.on('done', function(data){
@@ -171,7 +171,8 @@ io.sockets.on('connection', function (socket) {
         if(data.phase == "Map"){
             db.enqueue_intermediate_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
         } else if(data.phase == "Reduce"){ 
-            db.commit_final_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
+            console.dir(tasks[data.jobid].chunks[data.chunkid]);
+            db.enqueue_final_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
         }
 
         /* error check commits then do this, probably */
