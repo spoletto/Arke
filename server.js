@@ -8,11 +8,18 @@ var connect = require('connect'),
     express = require('express'),
 	db = require('./db_provider'),
 	config = require('./config'),
-	bcrypt = require('bcrypt');
+	form = require('connect-form'),
+	fs = require('fs'),
+	bcrypt = require('bcrypt'),
+    assert = require('assert').ok;
 
 var DUPLICATE_KEY_ERROR_CODE = 11000;
+var JOB_UPLOAD_DIRECTORY = "jobs/";
+var DEFAULT_REPLICATION_FACTOR = 3;
 
-var app = express.createServer();
+var app = express.createServer(
+	form({ keepExtensions: true })
+);
 app.configure(function() {
     app.set('views', __dirname + '/views');
     app.set('view engine', 'jade');
@@ -27,7 +34,20 @@ app.configure(function() {
 });
 
 app.get('/', function(req, res){
-    res.render('test.jade');
+	// Render the test_api screen for testing.
+	fs.readFile('views/test_api.html', function(error, content) {
+	        if (error) {
+	            res.writeHead(500);
+	            res.end();
+	        }
+	        else {
+	            res.writeHead(200, { 'Content-Type': 'text/html' });
+	            res.end(content, 'utf-8');
+
+
+
+	        }
+	    });
 });
 app.get('/register', function(req, res) {
 	res.render('register.jade');
@@ -41,18 +61,18 @@ app.get('/work', function(req, res){
 
 // Session Management
 function is_logged_in(req) {
-	return req.session.email_address != null;
+	return req.session != null && req.session.email_address != null;
 }
 
 /*
  * Call this to ensure the request is part of a valid
  * session (i.e. the user is logged in). If the user is
- * not logged in, they will be redirected to '/'. If the
- * user is logged in, the callback will be invoked.
+ * not logged in, an error JSON message will be sent back. 
+ * If the user is logged in, the callback will be invoked.
  */
 function auth_required(req, res, callback) {
 	if (!is_logged_in(req)) { 
-		res.redirect('/');
+		res.json({ status: 'login_required' });
 		return;
 	}
 	callback();
@@ -70,7 +90,7 @@ function auth_required(req, res, callback) {
 app.post('/login', function(req, res) {
 	var email_address = req.body.email_address;
 	var password = req.body.password;
-	console.log("GOT HERE");
+	
 	db.User.findOne({
 		email_address:email_address
 	}, function(err, user) {
@@ -86,6 +106,7 @@ app.post('/login', function(req, res) {
 		// Verify provided password is correct.
 		bcrypt.compare(password, user.password, function(err, pw_success) {
 			if (pw_success) {
+				req.session.email_address = email_address;
 				res.json({ status: 'login_successful' });
 				return;
 			} else {
@@ -121,8 +142,44 @@ app.post('/register', function(req, res) {
 		// New user was successfully saved to the database.
 		// Record the email address in the session object.
 		req.session.email_address = email_address;
-		res.json({status : 'registration_successful'});
+		res.json({ status : 'registration_successful' });
 		return;
+	});
+});
+
+/* Job submission endpoint.
+ * POST DATA: {
+ *    jobFile: The javascript file containing the user's map/reduce implementation.
+ *    jsonFile: The user-provided dataset.
+ * }
+ * RESPONSE: {
+ *    status: ["error", "JSON_parse_error", "upload_succesful"]
+ *    job_id: The job_id of the newly created job if the upload was successful.
+ * }
+ */
+app.post('/upload_job', function(req, res) {
+	auth_required(req, res, function() {
+		req.form.complete(function(err, fields, files) {
+			if (err) {
+				console.warn(err);
+				res.json({ status : 'error' }, 500);
+				return;
+			} else {
+				var jsonData = null;
+				try {
+					// Is there a better way to validate the JSON?
+					jsonData = JSON.parse(fs.readFileSync(files.jsonFile.path, 'utf8'));
+				} catch(e) {
+					// Error parsing the user provided JSON file.
+					res.json({ status:'JSON_parse_error' });
+					return; 
+				}				
+				db.add_new_job(req.session.email_address, jsonData, DEFAULT_REPLICATION_FACTOR, function(err, job) {
+					fs.renameSync(files.jobFile.path, JOB_UPLOAD_DIRECTORY + job.job_id + '.js');
+					res.json({ status : 'upload_successful', job_id: job.job_id });
+				});
+			}
+		});
 	});
 });
 
@@ -130,9 +187,11 @@ app.listen(8000);
 
 var io = require('socket.io').listen(app);
 
+var GLOBAL_GENERATION = 0;
+
 var MAX_TASKS_PER_WORKER = 4;
 /* how the fuck do i determine a decent value for this */
-var MAX_CHUNKS_PER_TASK = 1;
+var MAX_CHUNKS_PER_TASK = 2;
 
 io.sockets.on('connection', function (socket) {
     console.log(socket.id, 'connected');
@@ -183,42 +242,39 @@ io.sockets.on('connection', function (socket) {
     function getChunksForTask(jobid){
         console.log(socket.id, 'getting chunks for task', jobid);
         if(nkeys(tasks[jobid].chunks) < MAX_CHUNKS_PER_TASK){
-            db.is_job_active(jobid, function(active, phase){
-                if(active){
-                    console.log('active job', jobid, 'in phase', phase);
-
-                    var dequeue;
-                    if(phase == "Map"){
-                        dequeue = db.dequeue_map_work;
-                    } else if(phase == "Reduce"){
-                        dequeue = db.dequeue_reduce_work;
-                    }
-
-                    dequeue(jobid, function(err, work_unit){
-                        if(err) {console.warn(err); return;}
-                        if(!err && work_unit == null)
-                            getChunksForTask(jobid);
-
-                        console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
-
-                        var task = {phase: phase,
-                                    jobid: jobid,
-                                    chunkid: work_unit._id,
-                                    data: work_unit.data};
-
-                        /* if phase is changing, assert that nchunks is  0 */
-                        tasks[jobid].chunks[task.chunkid] = [];
-                        tasks[jobid].phase = phase;
-                        socket.emit('task', task);
-                        getChunksForTask(jobid);
-                    });
-
-                } else if(nkeys(tasks[jobid].chunks) == 0){
+              
+            var localGeneration = GLOBAL_GENERATION++;
+            db.dequeue_work(jobid, function(err, work_unit, phase){
+                if (localGeneration != GLOBAL_GENERATION) { return getChunksForTask(jobid); }
+                if(err) {
+                    console.warn(err);
+                    return;
+                }
+                if(phase == "Finished"){
                     console.log('killing job');
                     delete tasks[jobid];
                     socket.emit('kill', jobid);
-                    getTasks();
+                    return getTasks();
+                } 
+                if(!work_unit){
+                    console.log(phase, work_unit);
+                    return getChunksForTask(jobid);
                 }
+
+                assert(work_unit);
+
+                console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
+
+                var task = {phase: phase,
+                            jobid: jobid,
+                            chunkid: work_unit._id,
+                            data: work_unit.data};
+
+                /* if phase is changing, assert that nchunks is  0 */
+                tasks[jobid].chunks[task.chunkid] = [];
+                tasks[jobid].phase = phase;
+                socket.emit('task', task);
+                return getChunksForTask(jobid);
             });
         }
     }
