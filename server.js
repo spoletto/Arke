@@ -10,7 +10,8 @@ var connect = require('connect'),
 	config = require('./config'),
 	form = require('connect-form'),
 	fs = require('fs'),
-	bcrypt = require('bcrypt');
+	bcrypt = require('bcrypt'),
+    assert = require('assert').ok;
 
 var DUPLICATE_KEY_ERROR_CODE = 11000;
 var JOB_UPLOAD_DIRECTORY = "jobs/";
@@ -185,7 +186,7 @@ var io = require('socket.io').listen(app);
 
 var MAX_TASKS_PER_WORKER = 4;
 /* how the fuck do i determine a decent value for this */
-var MAX_CHUNKS_PER_TASK = 1;
+var MAX_CHUNKS_PER_TASK = 2;
 
 io.sockets.on('connection', function (socket) {
     console.log(socket.id, 'connected');
@@ -236,43 +237,36 @@ io.sockets.on('connection', function (socket) {
     function getChunksForTask(jobid){
         console.log(socket.id, 'getting chunks for task', jobid);
         if(nkeys(tasks[jobid].chunks) < MAX_CHUNKS_PER_TASK){
-            db.is_job_active(jobid, function(active, phase){
-                if(active){
-                    console.log('active job', jobid, 'in phase', phase);
-
-                    var dequeue;
-                    if(phase == "Map"){
-                        dequeue = db.dequeue_map_work;
-                    } else if(phase == "Reduce"){
-                        dequeue = db.dequeue_reduce_work;
-                    }
-
-                    dequeue(jobid, function(err, work_unit){
-                        if(err) {console.warn(err); return;}
-                        if(!err && work_unit == null) {
-                            return getChunksForTask(jobid);
-						}
-
-                        console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
-
-                        var task = {phase: phase,
-                                    jobid: jobid,
-                                    chunkid: work_unit._id,
-                                    data: work_unit.data};
-
-                        /* if phase is changing, assert that nchunks is  0 */
-                        tasks[jobid].chunks[task.chunkid] = [];
-                        tasks[jobid].phase = phase;
-                        socket.emit('task', task);
-                        getChunksForTask(jobid);
-                    });
-
-                } else if(nkeys(tasks[jobid].chunks) == 0){
+            db.dequeue_work(jobid, function(err, work_unit, phase){
+                if(err) {
+                    console.warn(err);
+                    return;
+                }
+                if(phase == "Finished"){
                     console.log('killing job');
                     delete tasks[jobid];
                     socket.emit('kill', jobid);
-                    getTasks();
+                    return getTasks();
+                } 
+                if(!work_unit){
+                    console.log(phase, work_unit);
+                    return getChunksForTask(jobid);
                 }
+
+                assert(work_unit);
+
+                console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
+
+                var task = {phase: phase,
+                            jobid: jobid,
+                            chunkid: work_unit._id,
+                            data: work_unit.data};
+
+                /* if phase is changing, assert that nchunks is  0 */
+                tasks[jobid].chunks[task.chunkid] = [];
+                tasks[jobid].phase = phase;
+                socket.emit('task', task);
+                return getChunksForTask(jobid);
             });
         }
     }
