@@ -213,7 +213,7 @@ function dequeue_work(job_id, callback) {
     Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { map_data : -1 } }, { new: false }, function(err, job) {
 		if (err) { console.warn(err.message); return; }
 		if (!job) { console.warn("No job found."); return; }
-		if (!job.map_data.length) { callback(null, null); return; }
+		if (!job.map_data.length) { callback(null, null, job.phase); return; }
 		
         if (job.phase == "Map") {
             var work_unit_id = job.map_data[0];
