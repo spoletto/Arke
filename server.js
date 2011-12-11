@@ -6,8 +6,9 @@
 
 var connect = require('connect'),
     express = require('express'),
-	db = require('./db_provider');
-	config = require('./config')
+	db = require('./db_provider'),
+	config = require('./config'),
+	bcrypt = require('bcrypt');
 
 var DUPLICATE_KEY_ERROR_CODE = 11000;
 
@@ -22,6 +23,7 @@ app.configure(function() {
 	app.use(express.session({secret : SESSION_COOKIE_SECRET})); 
     app.use(app.router);
     app.use('/client', express.static(__dirname + '/client'));
+	app.use('/jobs', express.static(__dirname + '/jobs'));
 });
 
 app.get('/', function(req, res){
@@ -132,106 +134,125 @@ app.listen(8000);
 
 var io = require('socket.io').listen(app);
 
+var MAX_TASKS_PER_WORKER = 4;
+/* how the fuck do i determine a decent value for this */
+var MAX_CHUNKS_PER_TASK = 1;
+
 io.sockets.on('connection', function (socket) {
-    var tasks = {length: 0};
+    console.log(socket.id, 'connected');
+    var tasks = {};
 
     socket.on('disconnect', function(){
-        console.log(socket.id + ' disconnected');
-        restoreTasks(tasks);
+        console.log(socket.id, 'disconnected');
+        for(jobid in tasks){
+            var enqueue;
+            if(tasks.phase == "Map"){
+                enqueue = db.enqueue_map_work;
+            } else {
+                enqueue = db.enqueue_reduce_work;
+            }
+            for(chunkid in tasks[jobid]){
+                enqueue(jobid, chunkid);
+            }
+        }
     });
 
-    socket.on('getTasks', sendTasks);
+    socket.on('getTasks', getTasks);
 
     socket.on('emit', function(data){
-        /* TODO this entry's existence should be asserted to some extent */
-        tasks[data.jobid][data.phase][data.chunkid].append(
-            {key: data.key, value: data.value}
-        );
+        console.log(socket.id, 'emitted kv for chunk', data.chunkid, 'of task', data.jobid);
+        //console.dir(data);
+        /* this entry's existence should be asserted to some extent */
+        var d = {};
+        d[data.key] = data.value;
+        tasks[data.jobid].chunks[data.chunkid].push(d);
     });
 
     socket.on('done', function(data){
-        /* TODO data validity and this entry's existence should be asserted to some extent */
+        console.log(socket.id, 'finished chunk', data.chunkid, 'of task', data.jobid);
+        /* todo: data validity and this entry's existence should be asserted to some extent */
+        /* assert task is in that phase */
         if(data.phase == "Map"){
-            enqueue_intermediate_result(data.jobid, data.chunkid,
-                                        tasks[data.jobid][data.phase][data.chunkid], handleShuffle);
+            db.enqueue_intermediate_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
         } else if(data.phase == "Reduce"){ 
-            commit_final_result(data.jobid, data.chunkid, tasks[data.jobid][data.phase][data.chunkid]);
+            console.dir(tasks[data.jobid].chunks[data.chunkid]);
+            db.enqueue_final_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
         }
+
         /* error check commits then do this, probably */
-        tasks.length--;
-        delete tasks[data.jobid][data.phase][data.chunkid];
-        sendTasks();
+        delete tasks[data.jobid].chunks[data.chunkid];
+        getChunksForTask(data.jobid);
     });
 
-    function sendTasks(){
-        if(tasks.length < MAX_TASKS_PER_WORKER){
-            getTask(function(err, task){
-                if(err){
-                    /*TODO */
-                    return;
-                }
+    function getChunksForTask(jobid){
+        console.log(socket.id, 'getting chunks for task', jobid);
+        if(nkeys(tasks[jobid].chunks) < MAX_CHUNKS_PER_TASK){
+            db.is_job_active(jobid, function(active, phase){
+                if(active){
+                    console.log('active job', jobid, 'in phase', phase);
 
-                if(task == null){
+                    var dequeue;
+                    if(phase == "Map"){
+                        dequeue = db.dequeue_map_work;
+                    } else if(phase == "Reduce"){
+                        dequeue = db.dequeue_reduce_work;
+                    }
+
+                    dequeue(jobid, function(err, work_unit){
+                        if(err) {console.warn(err); return;}
+                        if(!err && work_unit == null)
+                            getChunksForTask(jobid);
+
+                        console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
+
+                        var task = {phase: phase,
+                                    jobid: jobid,
+                                    chunkid: work_unit._id,
+                                    data: work_unit.data};
+
+                        /* if phase is changing, assert that nchunks is  0 */
+                        tasks[jobid].chunks[task.chunkid] = [];
+                        tasks[jobid].phase = phase;
+                        socket.emit('task', task);
+                        getChunksForTask(jobid);
+                    });
+
+                } else if(nkeys(tasks[jobid].chunks) == 0){
+                    console.log('killing job');
+                    delete tasks[jobid];
+                    socket.emit('kill', jobid);
+                    getTasks();
+                }
+            });
+        }
+    }
+
+    function getTasks(){
+        console.log(socket.id, 'getting tasks');
+        if(nkeys(tasks) < MAX_TASKS_PER_WORKER){
+            db.all_active_jobs(function(err, jobs){
+                console.log("got jobs from db");
+                console.dir(tasks);
+                if(err) { console.warn(err); return; }
+
+                if(jobs.length <= nkeys(tasks)){
+                    console.log('waiting since lesseq jobs',jobs.length,'than current tasks', nkeys(tasks)); 
                     socket.emit('wait');
                     return;
                 }
 
-                /* TODO assert task validity */
-
-                if(!(data.jobid in tasks))
-                    tasks[data.jobid] = {};
-
-                if(!(data.phase in tasks[data.jobid]))
-                    tasks[data.jobid][data.phase] = {}
-
-                /* TODO assert chunkid not already there */
-                tasks[data.jobid][data.phase][data.chunkid] = {};
-                tasks.length++;
-                socket.emit('task', task);
-                sendTasks();
-            })
-        };
+                var available_jobs = jobs.filter(function(j) { return !(j._id in tasks); });
+                var job = available_jobs[Math.floor(Math.random() * available_jobs.length)];
+                tasks[job._id] = {chunks: {}, phase: job.phase};
+                getChunksForTask(job._id);
+                getTasks();
+            });
+        }
     }
 
-    sendTasks();
+    getTasks();
 });
 
-function getTask(callback){
-    db.all_active_jobs(function(err, jobs){
-        if(err || jobs.length == 0) return false;    
-
-        var job = jobs[Math.floor(Math.random()*jobs.length)];
-
-        var dequeue;
-        if(job.phase == "Map"){
-            dequeue = dequeue_map_work;
-        } else if(job.phase == "Reduce"){
-            dequeue = dequeue_map_reduce;
-        } else {
-            /* TODO non-active job! err or try again */
-            return;
-        }
-
-        dequeue(job._id, function(err, work_unit){
-            if(!err && work_unit == null)
-                return getTask(callback);
-
-            var task = {phase: job.phase,
-                        jobid: job._id,
-                        chunkid: work_unit._id,
-                        data: work_unit.data};
-            callback(0, task);
-        });
-    });
+function nkeys(o){
+    return Object.keys(o).length;
 }
-
-/* put each task back in its corresponding job queue */
-function restoreTasks(tasks){
-    /* TODO */
-}
-
-/* verify replicates, group by key, initialize reduce */
-function handleShuffle(jobid, intermediate_data){
-    /* TODO */
-}
-

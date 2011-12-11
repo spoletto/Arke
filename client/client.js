@@ -3,7 +3,7 @@ var workers = {};
 var socket = io.connect(window.location.hostname, {port: 8000});
 var waiting = false;
 /* time to wait before asking for tasks again, in ms */
-var WAIT_TIME = 5000;
+var WAIT_TIME = 10000;
 
 socket.on('connect', function(){ 
     console.log('socket connected');
@@ -15,7 +15,8 @@ socket.on('disconnect', function(){
 
 /* XXX how to prune dead workers? multiple workers for one jobid? */
 socket.on('task', function(data){
-    clearInterval();
+    console.log('received task', data);
+    /* TODO lock the worker while its being created */
     var jobid = data.jobid;
     if(!(jobid in workers)){
         workers[jobid] = new MessagingWorker(jobid);
@@ -24,14 +25,24 @@ socket.on('task', function(data){
 });
 
 socket.on('wait', function(){
-    setInterval(function(){
+    console.log('waiting');
+    setTimeout(function(){
         socket.emit('getTasks');
     }, WAIT_TIME);
 });
 
+socket.on('kill', function(jobid){
+    /* should probably keep track of active tasks in worker and assert
+     * that they are finished before terminating the worker. */
+    console.log('killing', jobid);
+    if(jobid in workers){
+        workers[jobid].worker.terminate();
+    }
+});
+
 function MessagingWorker(jobid){
     this.jobid = jobid;
-    this.worker = new Worker('jobs/' + jobid);
+    this.worker = new Worker('jobs/' + jobid + '.js');
     this.handlers = {};
     this.on = function(action, handler){
         this.handlers[action] = handler;
