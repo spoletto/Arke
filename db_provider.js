@@ -200,65 +200,48 @@ function add_new_job(creator_email_address, input_data, replication_factor, call
 }
 
 /*
- * Dequeue a unit of work from the job's map_data
+ * Dequeue a unit of work from the job's work
  * queue. The job_id specified should be the ObjectId
  * of the job object in the database. Upon success,
  * the callback will be invoked with the unit of work
  * dequeued. Callback should be of the form
- * function (err, work_unit). If the work_unit provided
+ * function (err, work_unit, phase). If the work_unit provided
  * to the callback is null and there is no error, the
- * caller can assume this job has no pending map work units.
+ * caller can assume this job has no pending work units.
  */
-function dequeue_map_work(job_id, callback) {
-	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { map_data : -1 } }, { new: false }, function(err, job) {
+function dequeue_work(job_id, callback) {
+    Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { map_data : -1 } }, { new: false }, function(err, job) {
 		if (err) { console.warn(err.message); return; }
 		if (!job) { console.warn("No job found."); return; }
 		if (!job.map_data.length) { callback(null, null); return; }
 		
-		var work_unit_id = job.map_data[0];
-		WorkUnit.findOne({
-			_id:work_unit_id
-		}, callback);
+        if (job.phase == "Map") {
+            var work_unit_id = job.map_data[0];
+            WorkUnit.findOne({
+                _id:work_unit_id
+            }, function(err, work_unit) {
+                callback(err, work_unit, "Map");
+            });
+        } else if (job.phase == "Reduce") {
+            var work_key = job.map_data[0];
+            var value = job.validated_intermediate_result[work_key];
+            var response = {};
+            response['_id'] = work_key;
+            response['data'] = {
+                'key' : work_key,
+                'values' : value
+            };
+            callback(null, response, "Reduce");
+        }
 	});
 }
 
 /*
- * Enqueue a unit of work back into the job's map_data queue.
+ * Enqueue a unit of work back into the job's work queue.
  * This is useful when a client disconnects, for instance.
  */
-function enqueue_map_work(job_id, work_unit_id) {
+function enqueue_work(job_id, work_unit_id) {
 	Job.update({ 'job_id':job_id.toString() }, { $push: { map_data : work_unit_id } }, {}, function(err) {
-		// TODO: Handle error.
-	});
-}
-
-/*
- * Same as dequeue_map_work, but for the reduce phase of operation.
- */
-function dequeue_reduce_work(job_id, callback) {
-	Job.findAndModify({ 'job_id':job_id.toString() }, [], { $pop: { intermediate_keys : -1 } }, { new: false }, function(err, job) {
-		if (err) { console.warn(err.message); return; }
-		if (!job) { console.warn("No job found."); return; }
-		if (!job.intermediate_keys.length) { callback(null, null); return; }
-	
-		var work_key = job.intermediate_keys[0];
-		var value = job.validated_intermediate_result[work_key];
-		var response = {};
-		response['_id'] = work_key;
-		response['data'] = {
-			'key' : work_key,
-			'values' : value
-		};
-		callback(null, response);
-	});
-}
-
-/*
- * Enqueue a unit of work back into the job's reduce data queue.
- * This is useful when a client disconnects, for instance.
- */
-function enqueue_reduce_work(job_id, work_key) {
-	Job.update({ 'job_id':job_id.toString() }, { $push: { intermediate_keys : work_key } }, {}, function(err) {
 		// TODO: Handle error.
 	});
 }
@@ -317,7 +300,7 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 													duplicated_key_set.push(inserted_key);
 												}
 											}
-											Job.findAndModify( { 'job_id':job_id.toString() }, [], { $pushAll : { 'intermediate_keys' : duplicated_key_set }, $set : { 'phase' : 'Reduce', 'reduce_data_count' : reduce_data_count } }, { new: true }, function(err, finalJob) {
+											Job.findAndModify( { 'job_id':job_id.toString() }, [], { $pushAll : { 'map_data' : duplicated_key_set }, $set : { 'phase' : 'Reduce', 'reduce_data_count' : reduce_data_count } }, { new: true }, function(err, finalJob) {
 												if (err) { console.warn(err); return; }
 												if (callback) { callback(); }
 											});
@@ -410,7 +393,6 @@ function reset_job(job_id) {
 		Job.update({ 'job_id':job_id.toString() }, 
 			{
 				active : true,
-				intermediate_keys : [],
 				map_data : job.input_data,
 				map_intermediate_data : {},
 				output_data : [],
@@ -435,13 +417,11 @@ exports.WorkUnit = WorkUnit;
 
 // And export the public API.
 exports.add_new_user = add_new_user;
-exports.dequeue_map_work = dequeue_map_work;
 exports.all_active_jobs = all_active_jobs;
 exports.add_new_job = add_new_job;
-exports.dequeue_reduce_work = dequeue_reduce_work;
+exports.dequeue_work = dequeue_work;
 exports.enqueue_intermediate_result = enqueue_intermediate_result;
 exports.enqueue_final_result = enqueue_final_result;
-exports.enqueue_map_work = enqueue_map_work;
-exports.enqueue_reduce_work = enqueue_reduce_work;
+exports.enqueue_work = enqueue_work;
 exports.is_job_active = is_job_active;
 exports.reset_job = reset_job;
