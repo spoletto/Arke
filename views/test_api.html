@@ -1,0 +1,15 @@
+<script src="/socket.io/socket.io.js"></script>
+<script type="text/javascript" src="client/client.js" ></script>
+
+<form name="input" action="http://localhost:8000/login" method="POST">
+Email: <input type="text" name="email_address" />
+Password: <input type="text" name="password" />
+<input type="submit" value="Submit" />
+</form>	
+
+
+<form name="job" action="http://localhost:8000/upload_job" enctype="multipart/form-data" method="POST">
+Job File <input type="file" name="jobFile"/>
+JSON Data <input type="file" name="jsonFile"/>
+<input type="submit" value="Upload" />
+</form>	
