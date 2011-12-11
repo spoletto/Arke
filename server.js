@@ -25,7 +25,7 @@ app.configure(function() {
 });
 
 app.get('/', function(req, res){
-    res.render('home.jade');
+    res.render('test.jade');
 });
 app.get('/register', function(req, res) {
 	res.render('register.jade');
@@ -68,7 +68,7 @@ function auth_required(req, res, callback) {
 app.post('/login', function(req, res) {
 	var email_address = req.body.email_address;
 	var password = req.body.password;
-	
+	console.log("GOT HERE");
 	db.User.findOne({
 		email_address:email_address
 	}, function(err, user) {
@@ -92,6 +92,10 @@ app.post('/login', function(req, res) {
 			}
 		});
 	});
+});
+
+app.get('/test', function(req, res){
+	res.renderHtml('index.html');
 });
 
 /* User registration endpoint.
