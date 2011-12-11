@@ -96,10 +96,6 @@ app.post('/login', function(req, res) {
 	});
 });
 
-app.get('/test', function(req, res){
-	res.renderHtml('index.html');
-});
-
 /* User registration endpoint.
  * POST DATA: {
  *    email_address: User-specified email address.
