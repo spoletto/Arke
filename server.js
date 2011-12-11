@@ -184,6 +184,8 @@ app.listen(8000);
 
 var io = require('socket.io').listen(app);
 
+var GLOBAL_GENERATION = 0;
+
 var MAX_TASKS_PER_WORKER = 4;
 /* how the fuck do i determine a decent value for this */
 var MAX_CHUNKS_PER_TASK = 2;
@@ -237,7 +239,10 @@ io.sockets.on('connection', function (socket) {
     function getChunksForTask(jobid){
         console.log(socket.id, 'getting chunks for task', jobid);
         if(nkeys(tasks[jobid].chunks) < MAX_CHUNKS_PER_TASK){
+              
+            var localGeneration = GLOBAL_GENERATION++;
             db.dequeue_work(jobid, function(err, work_unit, phase){
+                if (localGeneration != GLOBAL_GENERATION) { return getChunksForTask(jobid); }
                 if(err) {
                     console.warn(err);
                     return;
