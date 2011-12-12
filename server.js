@@ -187,8 +187,6 @@ var io = require('socket.io').listen(app);
 var GLOBAL_GENERATION = 0;
 
 var MAX_TASKS_PER_WORKER = 4;
-/* how the fuck do i determine a decent value for this */
-var MAX_CHUNKS_PER_TASK = 2;
 
 io.sockets.on('connection', function (socket) {
     console.log(socket.id, 'connected');
@@ -212,7 +210,7 @@ io.sockets.on('connection', function (socket) {
     socket.on('getTasks', getTasks);
 
     socket.on('emit', function(data){
-        console.log(socket.id, 'emitted kv for chunk', data.chunkid, 'of task', data.jobid);
+        //S
         //console.dir(data);
         /* this entry's existence should be asserted to some extent */
         var d = {};
@@ -238,42 +236,44 @@ io.sockets.on('connection', function (socket) {
 
     function getChunksForTask(jobid){
         console.log(socket.id, 'getting chunks for task', jobid);
-        if(nkeys(tasks[jobid].chunks) < MAX_CHUNKS_PER_TASK){
-              
-            var localGeneration = GLOBAL_GENERATION++;
-            db.dequeue_work(jobid, function(err, work_unit, phase){
-                if (localGeneration != GLOBAL_GENERATION) { return getChunksForTask(jobid); }
-                if(err) {
-                    console.warn(err);
-                    return;
-                }
-                if(phase == "Finished"){
+        db.dequeue_work(jobid, function(err, work_unit, phase){
+            if(err) {
+                console.warn(err);
+                return;
+            }
+
+            if(phase == "Finished"){
+                if(jobid in tasks && nkeys(tasks[jobid].chunks) == 0){
                     console.log('killing job');
                     delete tasks[jobid];
                     socket.emit('kill', jobid);
                     return getTasks();
-                } 
-                if(!work_unit){
-                    console.log(phase, work_unit);
-                    return getChunksForTask(jobid);
+                } else {
+                    return;
                 }
+            } 
 
-                assert(work_unit);
+            if(!work_unit){
+                console.log('retrying in 5');
+                setTimeout(function() { getChunksForTask(jobid); }, 5000);
+                return;
+            }
 
-                console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
+            assert(work_unit);
 
-                var task = {phase: phase,
-                            jobid: jobid,
-                            chunkid: work_unit._id,
-                            data: work_unit.data};
+            console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
 
-                /* if phase is changing, assert that nchunks is  0 */
-                tasks[jobid].chunks[task.chunkid] = [];
-                tasks[jobid].phase = phase;
-                socket.emit('task', task);
-                return getChunksForTask(jobid);
-            });
-        }
+            var task = {phase: phase,
+                        jobid: jobid,
+                        chunkid: work_unit._id,
+                        data: work_unit.data};
+
+            /* if phase is changing, assert that nchunks is  0 */
+            tasks[jobid].chunks[task.chunkid] = [];
+            tasks[jobid].phase = phase;
+            socket.emit('task', task);
+            return;
+        });
     }
 
     function getTasks(){
