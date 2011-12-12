@@ -1,0 +1,75 @@
+{
+   "browser": {
+      "window_placement": {
+         "bottom": 1006,
+         "left": 4,
+         "maximized": false,
+         "right": 829,
+         "top": 0,
+         "work_area_bottom": 1028,
+         "work_area_left": 0,
+         "work_area_right": 1680,
+         "work_area_top": 0
+      }
+   },
+   "countryid_at_install": -1,
+   "default_search_provider": {
+      "enabled": true,
+      "encodings": "UTF-8",
+      "icon_url": "http://www.google.com/favicon.ico",
+      "id": "2",
+      "instant_url": "{google:baseURL}webhp?{google:RLZ}sourceid=chrome-instant&ie={inputEncoding}&ion=1{searchTerms}&nord=1",
+      "keyword": "google.com",
+      "name": "Google",
+      "prepopulate_id": "1",
+      "search_url": "{google:baseURL}search?{google:RLZ}{google:acceptedSuggestion}{google:originalQueryForSuggestion}sourceid=chrome&ie={inputEncoding}&q={searchTerms}",
+      "suggest_url": "{google:baseSuggestURL}search?client=chrome&hl={language}&q={searchTerms}"
+   },
+   "dns_prefetching": {
+      "host_referral_list": [ 2, [ "http://tools.google.com/", [ "http://fonts.googleapis.com/", 2.6037003999999997, "http://themes.googleusercontent.com/", 2.6037003999999997, "http://tools.google.com/", 3.924981199999999, "http://www.google-analytics.com/", 2.6037003999999997, "http://www.google.com/", 3.2643407999999994 ] ] ],
+      "startup_list": [ 1, "http://crl.geotrust.com/", "http://fonts.googleapis.com/", "http://ocsp.thawte.com/", "http://themes.googleusercontent.com/", "http://tools.google.com/", "http://www.google-analytics.com/", "http://www.google.com/", "http://www.gstatic.com/" ]
+   },
+   "download": {
+      "directory_upgrade": true
+   },
+   "extensions": {
+      "autoupdate": {
+         "next_check": "12968144735661427"
+      },
+      "chrome_url_overrides": {
+         "bookmarks": [ "chrome-extension://eemcgdkfndhakfknompkggombfjjjeno/main.html" ]
+      }
+   },
+   "google": {
+      "services": {
+         "username": ""
+      }
+   },
+   "homepage": "http://www.google.com/",
+   "homepage_is_newtabpage": true,
+   "ntp": {
+      "pref_version": 3,
+      "promo_build": 0,
+      "promo_closed": false,
+      "promo_end": 1323071940.0,
+      "promo_group": 15,
+      "promo_group_timeslice": 0,
+      "promo_line": "\u003Ca href=\"http://www.google.com/chromebook/index.html#utm_campaign=en&utm_source=en-ntp-holidays-na-us-bkws&utm_medium=ntp-holidays\"\u003EGet a Chromebook for the holidays\u003C/a\u003E: the computer powered by Chrome.",
+      "promo_resource_cache_update": "1323652171.143115",
+      "promo_start": 1321862280.0,
+      "shown_sections": 64,
+      "webstore_last_promo_id": "1257606"
+   },
+   "plugins": {
+      "enabled_internal_pdf3": true
+   },
+   "profile": {
+      "content_settings": {
+         "pref_version": 1
+      },
+      "exited_cleanly": true
+   },
+   "tabs": {
+      "use_vertical_tabs": false
+   }
+}
