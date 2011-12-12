@@ -190,7 +190,7 @@ def bootstrap_instance():
         cmd.run("mkdir " + currChromeDataDir + "/Default")
         cmd.run("cp /tmp/GoogleChromeLocalStateSample " + currChromeDataDir + "/Local\ State")
         cmd.run("cp /tmp/GoogleChromePreferencesSample " + currChromeDataDir + "/Default/Preferences")
-        cmd.run("DISPLAY=:1 google-chrome http://www.example.com --user-data-dir=" + currChromeDataDir)
+        cmd.run("DISPLAY=:1 google-chrome http://69.172.212.54 --user-data-dir=" + currChromeDataDir + " > /dev/null 2>&1 &")
     
     # Terminate the session?
     cmd.run("exit")
