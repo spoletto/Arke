@@ -90,6 +90,7 @@ function auth_required(req, res, callback) {
 app.post('/login', function(req, res) {
 	var email_address = req.body.email_address;
 	var password = req.body.password;
+	console.log("LOGIN POST REQUEST RECEIVED with email " + email_address + " password " + password);
 	
 	db.User.findOne({
 		email_address:email_address
