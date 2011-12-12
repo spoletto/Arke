@@ -163,13 +163,34 @@ def bootstrap_instance():
     print "cmd is " + str(cmd)
     
     # Install Google Chrome
-    cmd.run("sudo echo \"deb http://dl.google.com/linux/deb/ stable non-free main\" | tee -a /etc/apt/sources.list")
-    cmd.run("sudo wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - ")
+    cmd.run("echo \"deb http://dl.google.com/linux/deb/ stable non-free main\" | sudo tee -a /etc/apt/sources.list")
+    cmd.run("wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - ")
     cmd.run("sudo apt-get update")
     cmd.run("sudo apt-get install -y google-chrome-stable")
     
     # Install the xvfb X11 server
     cmd.run("sudo apt-get install -y xvfb")
+
+	# Install our 'screencap' script that allows us to start xvfb as a service.
+	cmd.run("sudo wget --output-document=/etc/init.d/screencap http://solvejs.s3.amazonaws.com/screencap")
+	cmd.run("sudo chmod 700 /etc/init.d/screencap")
+	
+	# Run the xvfb service!
+	cmd.run("sudo /etc/init.d/screencap start")
+	
+	# Download the sample Google Chrome user files. We'll need these to succeed at launching Chrome.
+	cmd.run("wget --output-document=/tmp/GoogleChromeLocalStateSample http://solvejs.s3.amazonaws.com/GoogleChromeLocalStateSample")
+	cmd.run("wget --output-document=/tmp/GoogleChromePreferencesSample http://solvejs.s3.amazonaws.com/GoogleChromePreferencesSample")
+
+	cmd.run("mkdir /tmp/chrome")
+	numChromeInstances = 12
+	for i in range(0, numChromeInstances):
+		currChromeDataDir = "/tmp/chrome/" + str(i)
+		cmd.run("mkdir " + currChromeDataDir)
+		cmd.run("mkdir " + currChromeDataDir + "/Default")
+		cmd.run("cp /tmp/GoogleChromeLocalStateSample " + currChromeDataDir + "/Local\ State")
+		cmd.run("cp /tmp/GoogleChromePreferencesSample " + currChromeDataDir + "/Default/Preferences")
+		cmd.run("DISPLAY=:1 google-chrome http://www.example.com --user-data-dir=" + currChromeDataDir)
     
-    # Terminate the sudo session.
+    # Terminate the session?
     cmd.run("exit")
