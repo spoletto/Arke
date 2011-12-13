@@ -31,11 +31,12 @@ app.configure(function() {
     app.use(app.router);
     app.use('/client', express.static(__dirname + '/client'));
 	app.use('/jobs', express.static(__dirname + '/jobs'));
+	app.use('/static', express.static(__dirname + '/static'));
 });
 
 app.get('/', function(req, res){
 	// Render the test_api screen for testing.
-	fs.readFile('views/test_api.html', function(error, content) {
+	fs.readFile('index.html', function(error, content) {
 	        if (error) {
 	            res.writeHead(500);
 	            res.end();
@@ -43,18 +44,13 @@ app.get('/', function(req, res){
 	        else {
 	            res.writeHead(200, { 'Content-Type': 'text/html' });
 	            res.end(content, 'utf-8');
+
+
+
 	        }
 	    });
 });
-app.get('/register', function(req, res) {
-	res.render('register.jade');
-})
-app.get('/monitor', function(req, res){
-    res.render('monitor.jade');
-});
-app.get('/work', function(req, res){
-    res.render('work.jade');
-});
+
 
 // Session Management
 function is_logged_in(req) {
@@ -87,6 +83,7 @@ function auth_required(req, res, callback) {
 app.post('/login', function(req, res) {
 	var email_address = req.body.email_address;
 	var password = req.body.password;
+	console.log("LOGIN POST REQUEST RECEIVED with email " + email_address + " password " + password);
 	
 	db.User.findOne({
 		email_address:email_address
