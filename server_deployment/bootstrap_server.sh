@@ -45,7 +45,7 @@ EOF
 chmod +x hooks/post-receive
 
 # Install MongoDB
-sudo apt-get install mongodb-server
+sudo apt-get install -y mongodb-server
 sudo mkdir -p /data/db
 sudo chown `id -u` /data/db
 
