@@ -172,4 +172,4 @@ def bootstrap_instance():
     
         # Copy our secret config file over as well.
         put('../config.js', '/home/ubuntu/www')
-        local('cd ..; git remote add ec2 ssh://ubuntu@' + str(instance.public_dns_name) +'/home/ubuntu/repo; git push ec2 +master:refs/heads/master')
+        local('cd ..; git remote add ' + str(instance.public_dns_name) + ' ssh://ubuntu@' + str(instance.public_dns_name) +'/home/ubuntu/repo; git push ec2 +master:refs/heads/master')
