@@ -64,10 +64,12 @@ function is_logged_in(req) {
  * If the user is logged in, the callback will be invoked.
  */
 function auth_required(req, res, callback) {
+    /*
 	if (!is_logged_in(req)) { 
 		res.json({ status: 'login_required' });
 		return;
 	}
+    */
 	callback();
 }
 
@@ -180,10 +182,35 @@ app.post('/upload_job', function(req, res) {
 
 app.get('/info/:jobid', function(req, res) {
     /* TODO return some info to a worker about a job*/
-}
+});
+
 app.get('/status/:jobid', function(req, res) {
     /* TODO return lots of info to a job owner about a job*/
-}
+});
+
+app.get('/results/:jobid.json', function(req, res) {
+	auth_required(req, res, function() {
+        db.get_job(req.params.jobid, function(err, job){
+            if(err){
+                res.send(500);
+				return;
+            }
+            /*
+            if(req.session.email_address != job.creator){
+                res.send(403);
+                return;
+            }*/
+            if(job.phase != "Finished"){
+                res.send(404);
+                return;
+            }
+
+            console.dir(job.output_data[0]);
+            console.dir(job.output_data);
+            res.json(JSON.stringify(job.output_data));
+        });
+    });
+});
 
 app.listen(80);
 

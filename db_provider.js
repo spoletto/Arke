@@ -387,6 +387,9 @@ function is_job_active(jobid, callback){
     });
 }
 
+function get_job(job_id, callback){
+    Job.findOne({ job_id: job_id.toString() }, callback);
+}
 /*
  * Resets a job to its initial state.
  */
@@ -429,3 +432,4 @@ exports.enqueue_final_result = enqueue_final_result;
 exports.enqueue_work = enqueue_work;
 exports.is_job_active = is_job_active;
 exports.reset_job = reset_job;
+exports.get_job = get_job;
