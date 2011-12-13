@@ -195,14 +195,8 @@ io.sockets.on('connection', function (socket) {
     socket.on('disconnect', function(){
         console.log(socket.id, 'disconnected');
         for(jobid in tasks){
-            var enqueue;
-            if(tasks.phase == "Map"){
-                enqueue = db.enqueue_map_work;
-            } else {
-                enqueue = db.enqueue_reduce_work;
-            }
             for(chunkid in tasks[jobid]){
-                enqueue(jobid, chunkid);
+                db.enqueue_work(jobid, chunkid);
             }
         }
     });
@@ -231,10 +225,10 @@ io.sockets.on('connection', function (socket) {
 
         /* error check commits then do this, probably */
         delete tasks[data.jobid].chunks[data.chunkid];
-        getChunksForTask(data.jobid);
+        getChunkForTask(data.jobid);
     });
 
-    function getChunksForTask(jobid){
+    function getChunkForTask(jobid){
         console.log(socket.id, 'getting chunks for task', jobid);
         db.dequeue_work(jobid, function(err, work_unit, phase){
             if(err) {
@@ -255,7 +249,7 @@ io.sockets.on('connection', function (socket) {
 
             if(!work_unit){
                 console.log('retrying in 5');
-                setTimeout(function() { getChunksForTask(jobid); }, 5000);
+                setTimeout(function() { getChunkForTask(jobid); }, 5000);
                 return;
             }
 
@@ -282,6 +276,7 @@ io.sockets.on('connection', function (socket) {
             db.all_active_jobs(function(err, jobs){
                 console.log("got jobs from db");
                 console.dir(tasks);
+                console.dir(jobs);
                 if(err) { console.warn(err); return; }
 
                 if(jobs.length <= nkeys(tasks)){
@@ -293,7 +288,7 @@ io.sockets.on('connection', function (socket) {
                 var available_jobs = jobs.filter(function(j) { return !(j._id in tasks); });
                 var job = available_jobs[Math.floor(Math.random() * available_jobs.length)];
                 tasks[job._id] = {chunks: {}, phase: job.phase};
-                getChunksForTask(job._id);
+                getChunkForTask(job._id);
                 getTasks();
             });
         }
