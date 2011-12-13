@@ -195,36 +195,26 @@ io.sockets.on('connection', function (socket) {
     socket.on('disconnect', function(){
         console.log(socket.id, 'disconnected');
         for(jobid in tasks){
-            for(chunkid in tasks[jobid]){
-                db.enqueue_work(jobid, chunkid);
+            if(tasks[jobid]){
+                db.enqueue_work(jobid, tasks[jobid]);
             }
         }
     });
 
     socket.on('getTasks', getTasks);
 
-    socket.on('emit', function(data){
-        //S
-        //console.dir(data);
-        /* this entry's existence should be asserted to some extent */
-        var d = {};
-        d[data.key] = data.value;
-        tasks[data.jobid].chunks[data.chunkid].push(d);
-    });
-
     socket.on('done', function(data){
         console.log(socket.id, 'finished chunk', data.chunkid, 'of task', data.jobid);
         /* todo: data validity and this entry's existence should be asserted to some extent */
         /* assert task is in that phase */
         if(data.phase == "Map"){
-            db.enqueue_intermediate_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
+            db.enqueue_intermediate_result(data.jobid, data.chunkid, data.results);
         } else if(data.phase == "Reduce"){ 
-            console.dir(tasks[data.jobid].chunks[data.chunkid]);
-            db.enqueue_final_result(data.jobid, data.chunkid, tasks[data.jobid].chunks[data.chunkid]);
+            db.enqueue_final_result(data.jobid, data.chunkid, data.results);
         }
 
         /* error check commits then do this, probably */
-        delete tasks[data.jobid].chunks[data.chunkid];
+        tasks[data.jobid] = null;
         getChunkForTask(data.jobid);
     });
 
@@ -237,7 +227,8 @@ io.sockets.on('connection', function (socket) {
             }
 
             if(phase == "Finished"){
-                if(jobid in tasks && nkeys(tasks[jobid].chunks) == 0){
+                if(jobid in tasks){
+                    assert(tasks[jobid] == null);
                     console.log('killing job');
                     delete tasks[jobid];
                     socket.emit('kill', jobid);
@@ -263,8 +254,7 @@ io.sockets.on('connection', function (socket) {
                         data: work_unit.data};
 
             /* if phase is changing, assert that nchunks is  0 */
-            tasks[jobid].chunks[task.chunkid] = [];
-            tasks[jobid].phase = phase;
+            tasks[jobid] = task.chunkid;
             socket.emit('task', task);
             return;
         });
@@ -287,7 +277,7 @@ io.sockets.on('connection', function (socket) {
 
                 var available_jobs = jobs.filter(function(j) { return !(j._id in tasks); });
                 var job = available_jobs[Math.floor(Math.random() * available_jobs.length)];
-                tasks[job._id] = {chunks: {}, phase: job.phase};
+                tasks[job._id] = null;
                 getChunkForTask(job._id);
                 getTasks();
             });
