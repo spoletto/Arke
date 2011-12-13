@@ -1,6 +1,6 @@
 /* Determine when to kill a worker */
 var workers = {};
-var socket = io.connect(window.location.hostname, {port: 8000});
+var socket = io.connect(window.location.hostname, {port: 80});
 
 socket.on('connect', function(){ 
     console.log('socket connected');
