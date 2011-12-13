@@ -8,7 +8,7 @@
  * Date: 12-07-2011
  */
 
-JOB_ID = '4ee03991d156574daa000003';
+JOB_ID = '4ee709772634e86aa8000003';
 
 var db = require('./db_provider');
-db.reset_job(JOB_ID);
+db.reset_job(JOB_ID, function() { process.exit() });

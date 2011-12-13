@@ -29,6 +29,7 @@ var Job = new Schema({
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
 	reduce_data : [ ObjectId ],
 	output_data : [ String ],
+    map_data: [ ],
 	initial_input_data_count : Number, // The number of WorkUnits in the input_data to begin.
 	validated_intermediate_result_count : Number,
 	reduce_data_count : Number,
@@ -388,7 +389,7 @@ function is_job_active(jobid, callback){
  * Resets a job to its initial state.
  */
 // TODO: There is a bug here. Reset only supports replication_factor = 1.
-function reset_job(job_id) {
+function reset_job(job_id, callback) {
 	Job.findOne({ 'job_id':job_id.toString() }, function(err, job) {
 		Job.update({ 'job_id':job_id.toString() }, 
 			{
@@ -404,7 +405,8 @@ function reset_job(job_id) {
 				validated_intermediate_result_count : 0,
 				validated_final_result_count : 0
 			}, {}, function(err) {
-				if (err) { console.warn(err); return; }
+				if (err) { console.warn(err); };
+                callback();
 			});
 	});
 }
