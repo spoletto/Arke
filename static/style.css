@@ -30,7 +30,7 @@ a:hover {
 }
 
 a img {
-  border: none;/*remove border for linked images*/
+  	border: none;/*remove border for linked images*/
 }
 
 /***** clear *****/
@@ -74,4 +74,56 @@ a img {
 	padding: 30px;
 	background: -webkit-gradient(linear, left top, left bottom, from(#bbb), to(#bebbc7));
 	opacity:0.6;
+}
+
+.left_content
+{
+	float:left;
+	width: 350px;
+	margin-right: 15px
+}
+.right_content
+{
+	float:l
+	width:500px;
+}
+.arch {
+	color: #6b686f;
+	background: -webkit-gradient(linear, left top, left bottom, from(#6b686f), to(#6b686f));
+}
+
+.current_work
+{
+	margin-bottom: 15px;
+	background: -webkit-gradient(linear, left top, left bottom, from(#6b686f), to(#6b686f));
+}
+
+.about_us
+{
+	background: -webkit-gradient(linear, left top, left bottom, from(#6b686f), to(#6b686f));
+}
+
+.upload_job
+{
+	background-image: url(images/bg_blue.png);
+	width: 150px;
+	-moz-box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1) inset;
+	-webkit-box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1) inset;
+	box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1) inset;
+	color: white;
+	display: block;
+	font-size: 16px;
+	height: 50px;
+	line-height: 50px;
+	margin: 0 auto;
+	margin-top: 20px;
+	position: relative;
+	text-align: center;
+	text-decoration: none;
+	width: 220px;
+	border-radius: 3px;
+	-moz-border-radius: 3px;
+	-webkit-border-radius: 3px;
+	border-radius: 3px;
+
 }
