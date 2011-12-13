@@ -26,6 +26,7 @@ var Job = new Schema({
 	job_id : String, // This is a string version of the job's ObjectId.
 	phase : String, // ["Map", "Shuffle", "Reduce", "Finished"]
 	creator : String, // Email address of the user who created the job.
+    blurb: String, //A little info about the task
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
 	reduce_data : [ ObjectId ],
 	output_data : [ String ],
@@ -155,7 +156,7 @@ function add_new_user(email_address, password, callback) {
  * shipping to worker nodes. Callback should be of the form: function (err, job).
  * The callback provides the newly created job object to the caller.
  */
-function add_new_job(creator_email_address, input_data, replication_factor, callback) {
+function add_new_job(creator_email_address, blurb, input_data, replication_factor, callback) {
 	// Ensure the specified user exists.
 	User.findOne({
 		email_address:creator_email_address
@@ -167,6 +168,7 @@ function add_new_job(creator_email_address, input_data, replication_factor, call
 	
 	function add_job_to_user(user) {
 		var new_job = new Job();
+		new_job.blurb = blurb;
 		new_job.phase = "Map";
 		new_job.job_id = new_job._id.toString();
 		new_job.creator = creator_email_address;

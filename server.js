@@ -168,7 +168,7 @@ app.post('/upload_job', function(req, res) {
 					res.json({ status:'JSON_parse_error' });
 					return; 
 				}				
-				db.add_new_job(req.session.email_address, jsonData, DEFAULT_REPLICATION_FACTOR, function(err, job) {
+				db.add_new_job(req.session.email_address, jsonData, fields.blurb, DEFAULT_REPLICATION_FACTOR, function(err, job) {
 					fs.renameSync(__dirname + '/' + files.jobFile.path, JOB_UPLOAD_DIRECTORY + job.job_id + '.js');
 					res.json({ status : 'upload_successful', job_id: job.job_id });
 				});
@@ -176,6 +176,14 @@ app.post('/upload_job', function(req, res) {
 		});
 	});
 });
+
+
+app.get('/info/:jobid', function(req, res) {
+    /* TODO return some info to a worker about a job*/
+}
+app.get('/status/:jobid', function(req, res) {
+    /* TODO return lots of info to a job owner about a job*/
+}
 
 app.listen(80);
 
