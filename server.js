@@ -51,11 +51,6 @@ app.get('/', function(req, res){
 	    });
 });
 
-app.get('/test_git', function(req, res) {
-	res.send("Git push is working.");
-});
-
-
 // Session Management
 function is_logged_in(req) {
 	return req.session != null && req.session.email_address != null;
