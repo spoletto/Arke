@@ -1,27 +1,28 @@
-jQuery(document).ready(function($) {
-//ON LOAD
+function setCookie(key, value) {  
+   	var expires = new Date();  
+    expires.setTime(expires.getTime() + 31536000000); //1 year  
+    document.cookie = key + '=' + value + ';expires=' + expires.toUTCString();  
+}  
+  
+function getCookie(key) {  
+  	 var keyValue = document.cookie.match('(^|;) ?' + key + '=([^;]*)(;|$)');  
+   	 return keyValue ? keyValue[2] : null;  
+ } 
 
-	//Hide the register div
-	$('#register_div').hide();
-	$('#register_submit').hide();
-	$('#registertxt').hide();
-	$('#toggleLogout').hide();
-	
-			
-	//set the login listener
-	$('#login_form').submit(function() {
-		console.log("In login callback");
- 		$.post('http://localhost:80/login', $("#login_form").serialize(), function(data) {
+function login(name){
+		console.log(name);
+ 		jQuery.post('http://localhost:80/login', jQuery("#login_form").serialize(), function(data) {
   			if (data['status'] == 'login_successful') {
   				/*login successful*/
   				// hide login stuff
-  				$('#login_form').fadeOut('slow', function(){
+  				jQuery('#login_form').fadeOut('slow', function(){
   				});
-  				$('#logintxt').hide();
-  				$('#toggleLogin').hide();
+  				jQuery('#logintxt').hide();
+  				jQuery('#toggleLogin').hide();
   				//show logout stuff
-  				$('#toggleLogout').show();
-  				$('#login_name').html("TESTESTETTS");
+  				jQuery('#toggleLogout').show();
+  				setCookie('solvejs', name);
+  					jQuery('#login_name').html(getCookie('solvejs'));
  				console.log("success");
   			} else if (data['status'] == 'bad_email') {
  				console.log("bad email");
@@ -32,6 +33,31 @@ jQuery(document).ready(function($) {
    			}
   		});
   		return false;
+}
+
+
+jQuery(document).ready(function($) {
+//ON LOAD
+
+	//Hide the register div
+	$('#register_div').hide();
+	$('#register_submit').hide();
+	$('#registertxt').hide();
+	$('#toggleLogout').hide();
+	
+	if(getCookie('solvejs') != ""){
+	// hide login stuff
+		jQuery('#login_form').fadeOut('slow', function(){
+		});
+		jQuery('#logintxt').hide();
+		jQuery('#toggleLogin').hide();
+		//show logout stuff
+		jQuery('#toggleLogout').show();
+		jQuery('#login_name').html(getCookie('solvejs'));
+	}
+	//set the login listener
+	$('#login_form').submit(function(req, res) {
+		login($(":input").val());	
 	});
 	
 	//set the upload listener
@@ -54,16 +80,21 @@ jQuery(document).ready(function($) {
 	
 //ON ACTION EVENTS	
 	$('#upload_job').click(function(){
-		/* Pop up the modal */
-		console.log("UPLOAD JOB");
-		$('#basic-modal-content').modal();
-
+		if(getCookie('solvejs') != "") {
+			/* Pop up the modal */
+			console.log("UPLOAD JOB");
+			$('#basic-modal-content').modal();
+		}else{
+			alert("Must be logged in to upload data");
+		}
+		
 	});
 	
 	$('#toggleLogout').click(function(){
 		//hide logout stuff
 		$('#toggleLogout').hide();
-		
+		setCookie('solvejs',"");
+		$('#login_name').html(getCookie('solvejs'));
 		// show login stuff
 		$('#login_form').fadeIn('slow', function(){
 		});
@@ -130,34 +161,15 @@ jQuery(document).ready(function($) {
 		$('#login_form').unbind('submit');
 		
 		
-		//reset the listener
-		$('#login_form').submit(function() {
-			console.log("In login callback");
-	 		$.post('http://localhost:80/login', $("#login_form").serialize(), function(data) {
-	  			alert(data['status']);
-	  			if (data['status'] == 'login_successful') {
-	 				console.log("success");
-	  			} else if (data['status'] == 'bad_email') {
-	 				console.log("bad email");
-	  			} else if (data['status'] == 'bad_password') {
-	 				console.log("bad password");
-	  			} else {
-	 				console.log("unknown response");
-	   			}
-	  		});
-	  		return false;
+		//reset the login listener
+		$('#login_form').submit(function(req, res) {
+			login($(":input").val());	
 		});
 	});	
 });
 
-jQuery(function ($) {
-	// Load dialog on page load
-	//$('#basic-modal-content').modal();
-
-	// Load dialog on click
-	$('#basic-modal .basic').click(function (e) {
-		$('#basic-modal-content').modal();
-		return false;
-	});
+jQuery(window).unload( function () { 
+	setCookie('solvejs', ""); 
 });
+ 
 
