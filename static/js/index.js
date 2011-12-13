@@ -11,8 +11,7 @@ jQuery(document).ready(function($) {
 	//set the login listener
 	$('#login_form').submit(function() {
 		console.log("In login callback");
- 		$.post('http://localhost:8000/login', $("#login_form").serialize(), function(data) {
-  			alert(data['status']);
+ 		$.post('http://localhost:80/login', $("#login_form").serialize(), function(data) {
   			if (data['status'] == 'login_successful') {
   				/*login successful*/
   				// hide login stuff
@@ -22,6 +21,7 @@ jQuery(document).ready(function($) {
   				$('#toggleLogin').hide();
   				//show logout stuff
   				$('#toggleLogout').show();
+  				$('#login_name').html("TESTESTETTS");
  				console.log("success");
   			} else if (data['status'] == 'bad_email') {
  				console.log("bad email");
@@ -37,7 +37,7 @@ jQuery(document).ready(function($) {
 	//set the upload listener
 	$('#upload_form').submit(function() {
 		console.log("In upload callback");
- 		$.post('http://localhost:8000/upload_job', $("#upload_form").serialize(), function(data) {
+ 		$.post('http://localhost:80/upload_job', $("#upload_form").serialize(), function(data) {
   			alert(data['status']);
   			if (data['status'] == 'upload_succesful') {
  				console.log("success");
@@ -57,6 +57,7 @@ jQuery(document).ready(function($) {
 		/* Pop up the modal */
 		console.log("UPLOAD JOB");
 		$('#basic-modal-content').modal();
+
 	});
 	
 	$('#toggleLogout').click(function(){
@@ -94,7 +95,7 @@ jQuery(document).ready(function($) {
 		//add the register listener
 		$('#login_form').submit(function() {
 			console.log("In register callback");
-	 		$.post('http://localhost:8000/register', $("#login_form").serialize(), function(data) {
+	 		$.post('http://localhost:80/register', $("#login_form").serialize(), function(data) {
 	  			alert(data['status']);
 	  			if (data['status'] == 'registration_successful') {
 	 				console.log("success");
@@ -132,7 +133,7 @@ jQuery(document).ready(function($) {
 		//reset the listener
 		$('#login_form').submit(function() {
 			console.log("In login callback");
-	 		$.post('http://localhost:8000/login', $("#login_form").serialize(), function(data) {
+	 		$.post('http://localhost:80/login', $("#login_form").serialize(), function(data) {
 	  			alert(data['status']);
 	  			if (data['status'] == 'login_successful') {
 	 				console.log("success");

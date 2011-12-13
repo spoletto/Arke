@@ -177,7 +177,7 @@ app.post('/upload_job', function(req, res) {
 	});
 });
 
-app.listen(8000);
+app.listen(80);
 
 var io = require('socket.io').listen(app);
 
