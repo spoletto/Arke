@@ -29,7 +29,7 @@ var Job = new Schema({
     blurb: String, //A little info about the task
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
 	reduce_data : [ ObjectId ],
-	output_data : [ String ],
+	output_data : [ ],
     map_data: [ ],
 	initial_input_data_count : Number, // The number of WorkUnits in the input_data to begin.
 	validated_intermediate_result_count : Number,
