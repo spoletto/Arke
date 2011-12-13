@@ -1,9 +1,6 @@
 /* Determine when to kill a worker */
 var workers = {};
 var socket = io.connect(window.location.hostname, {port: 8000});
-var waiting = false;
-/* time to wait before asking for tasks again, in ms */
-var WAIT_TIME = 10000;
 
 socket.on('connect', function(){ 
     console.log('socket connected');
@@ -22,13 +19,6 @@ socket.on('task', function(data){
         workers[jobid] = new MessagingWorker(jobid);
     }
     workers[jobid].emit('task', data);
-});
-
-socket.on('wait', function(){
-    console.log('waiting');
-    setTimeout(function(){
-        socket.emit('getTasks');
-    }, WAIT_TIME);
 });
 
 socket.on('kill', function(jobid){
