@@ -63,12 +63,11 @@ function is_logged_in(req) {
  * If the user is logged in, the callback will be invoked.
  */
 function auth_required(req, res, callback) {
-    /*
+    
 	if (!is_logged_in(req)) { 
 		res.json({ status: 'login_required' });
 		return;
 	}
-    */
 	callback();
 }
 
@@ -89,12 +88,15 @@ app.post('/login', function(req, res) {
 	db.User.findOne({
 		email_address:email_address
 	}, function(err, user) {
+		console.log("GOT HERE");
 		if (err) {
 			res.json({ status: 'error' }, 500);
+			console.log("error");
 			return;
 		}
 		if (!user) {
 			res.json({ status: 'bad_email' });
+			console.log("bad email");
 			return;
 		}
 		
@@ -103,9 +105,11 @@ app.post('/login', function(req, res) {
 			if (pw_success) {
 				req.session.email_address = email_address;
 				res.json({ status: 'login_successful' });
+				console.log("success");
 				return;
 			} else {
 				res.json({ status: 'bad_password' });
+				console.log("bad pass");
 				return;
 			}
 		});

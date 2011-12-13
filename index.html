@@ -29,14 +29,15 @@
 	<!-- START Fx.Slide -->
     <!-- Mootools - the core -->
 	<script type="text/javascript" src="static/js/mootools-1.2-core-yc.js"></script>
+    <!--Toggle effect (show/hide login form) -->
 	<script type="text/javascript" src="static/js/mootools-1.2-more.js"></script>
 	<script type="text/javascript" src="static/js/fx.slide.js"></script>
 	<!-- END Fx.Slide -->
-	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>	
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
 	<script type='text/javascript' src='static/js/jquery.simplemodal.js'></script> 
 	<script type='text/javascript' src='static/js/fileuploader.js'></script>
-
-	<script type="text/javascript" src="static/ajax.js"></script> 
+	
+	<script type="text/javascript" src="static/ajax.js"></script>
 	<script type="text/javascript" src="static/js/index.js"></script>
 	<script src="/socket.io/socket.io.js"></script>
 	<script type="text/javascript" src="client/client.js" ></script>
@@ -51,7 +52,7 @@
 	<!-- Login -->
 	<div id="login">
 		<div class="loginContent" id="loginContent">
-			<form action="#" method="post" id="login_form">
+			<form method="post" id="login_form">
 				<label for="email_address_field"><b>Username: </b></label>
 				<input class="field" type="text" name="email_address" id="email_address" value="" size="23" />
 				<label for="password"><b>Password:</b></label>
@@ -93,7 +94,7 @@
 				<a class="upload_job" href="#" title="Upload Job" id="upload_job" class="link">Upload Job</a>
 				<div id="basic-modal-content">
 				<h3>Upload Job</h3>		
-				<form action="#" enctype="multipart/form-data" method="post" id="upload_form">
+				<form enctype="multipart/form-data" method="post" id="upload_form">
 					<p>
 						Input Data: <BR>
 						<input class="file" type="file" name="jsonFile" id="jsonFile" size="40">
@@ -101,10 +102,6 @@
 					<p>
 						Map/Reduce File: <BR>
 						<input class="file" type="file" name="jobFile" id="jobFile" size="40">
-					</p>
-					<p>
-						Task Description: <BR>
-						<input type="text" name="blurb" id="blurb" size="40">
 					</p>
 					<div>
 						<input type="submit" value="Send">
