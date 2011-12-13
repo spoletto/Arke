@@ -63,10 +63,12 @@ function is_logged_in(req) {
  * If the user is logged in, the callback will be invoked.
  */
 function auth_required(req, res, callback) {
+    /*
 	if (!is_logged_in(req)) { 
 		res.json({ status: 'login_required' });
 		return;
 	}
+    */
 	callback();
 }
 
@@ -167,7 +169,7 @@ app.post('/upload_job', function(req, res) {
 					res.json({ status:'JSON_parse_error' });
 					return; 
 				}				
-				db.add_new_job(req.session.email_address, jsonData, DEFAULT_REPLICATION_FACTOR, function(err, job) {
+				db.add_new_job(req.session.email_address, jsonData, fields.blurb, DEFAULT_REPLICATION_FACTOR, function(err, job) {
 					fs.renameSync(__dirname + '/' + files.jobFile.path, JOB_UPLOAD_DIRECTORY + job.job_id + '.js');
 					res.json({ status : 'upload_successful', job_id: job.job_id });
 				});
@@ -176,9 +178,44 @@ app.post('/upload_job', function(req, res) {
 	});
 });
 
+
+app.get('/info/:jobid', function(req, res) {
+    /* TODO return some info to a worker about a job*/
+});
+
+app.get('/status/:jobid', function(req, res) {
+    /* TODO return lots of info to a job owner about a job*/
+});
+
+app.get('/results/:jobid.json', function(req, res) {
+	auth_required(req, res, function() {
+        db.get_job(req.params.jobid, function(err, job){
+            if(err){
+                res.send(500);
+				return;
+            }
+            /*
+            if(req.session.email_address != job.creator){
+                res.send(403);
+                return;
+            }*/
+            if(job.phase != "Finished"){
+                res.send(404);
+                return;
+            }
+
+            console.dir(job.output_data[0]);
+            console.dir(job.output_data);
+            res.json(JSON.stringify(job.output_data));
+        });
+    });
+});
+
 app.listen(80);
 
 var io = require('socket.io').listen(app);
+
+io.set('log level', 1);
 
 var MAX_TASKS_PER_WORKER = 4;
 var TASK_WAIT_TIME = 10000;
@@ -190,19 +227,17 @@ io.sockets.on('connection', function (socket) {
 
     socket.on('disconnect', function(){
         console.log(socket.id, 'disconnected');
+        console.dir(tasks);
         for(jobid in tasks){
-            if(tasks[jobid]){
+            if(tasks[jobid] != null){
+                console.log('enqueueing chunk', tasks[jobid], 'after disconnect');
                 db.enqueue_work(jobid, tasks[jobid]);
             }
         }
     });
 
-    socket.on('getTasks', getTasks);
-
     socket.on('done', function(data){
-        console.log(socket.id, 'finished chunk', data.chunkid, 'of task', data.jobid);
-        /* todo: data validity and this entry's existence should be asserted to some extent */
-        /* assert task is in that phase */
+        console.log('finished chunk', data.chunkid);
         if(data.phase == "Map"){
             db.enqueue_intermediate_result(data.jobid, data.chunkid, data.results);
         } else if(data.phase == "Reduce"){ 
@@ -216,6 +251,9 @@ io.sockets.on('connection', function (socket) {
 
     function getChunkForTask(jobid){
         console.log(socket.id, 'getting chunks for task', jobid);
+        if(tasks[jobid] != null || socket.disconnected)
+            return;
+
         db.dequeue_work(jobid, function(err, work_unit, phase){
             if(err) {
                 console.warn(err);
@@ -234,6 +272,11 @@ io.sockets.on('connection', function (socket) {
                 }
             } 
 
+            if(tasks[jobid] != null || socket.disconnected){
+                db.enqueue_work(jobid, work_unit._id);
+                return;
+            }
+
             if(!work_unit){
                 console.log('retrying in 5');
                 setTimeout(function() { getChunkForTask(jobid); }, CHUNK_WAIT_TIME);
@@ -249,7 +292,6 @@ io.sockets.on('connection', function (socket) {
                         chunkid: work_unit._id,
                         data: work_unit.data};
 
-            /* if phase is changing, assert that nchunks is  0 */
             tasks[jobid] = task.chunkid;
             socket.emit('task', task);
             return;
@@ -257,12 +299,12 @@ io.sockets.on('connection', function (socket) {
     }
 
     function getTasks(){
+        if(socket.disconnected)
+            return;
+
         console.log(socket.id, 'getting tasks');
         if(nkeys(tasks) < MAX_TASKS_PER_WORKER){
             db.all_active_jobs(function(err, jobs){
-                console.log("got jobs from db");
-                console.dir(tasks);
-                console.dir(jobs);
                 if(err) { console.warn(err); return; }
 
                 if(jobs.length <= nkeys(tasks)){
