@@ -277,10 +277,11 @@ function enqueue_intermediate_result(job_id, work_unit_id, result, callback) {
 				responseArray.forEach(function(response) {
 					for (key in response) {
 						if (response.hasOwnProperty(key)) {
+						    var preStrippedKey = key;
 							key = key.replace(/\./g, ""); // Mongo does not allow keys to end in a period.
 							var response_bucket = "validated_intermediate_result." + key;
 							var new_push_options = {};
-							new_push_options[response_bucket] = response[key];
+							new_push_options[response_bucket] = response[preStrippedKey];
 							Job.findAndModify( { 'job_id':job_id.toString() }, [], { $push : new_push_options }, { new: true }, function(err, job) {
 								if (err) { console.warn(err); return; }
 								committed_responses++;
