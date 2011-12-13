@@ -22,10 +22,11 @@
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
 
 	<!-- The CSS -->
-  	<link rel="stylesheet" href="static/style.css" type="text/css" media="screen" />
-  	<link rel="stylesheet" href="static/fx.slide.css" type="text/css" media="screen" />
-  	<link type='text/css' href='static/css/demo.css' rel='stylesheet' media='screen' />
-  	<link type='text/css' href='static/css/basic.css' rel='stylesheet' media='screen' />	
+  	<link type="text/css" href="static/style.css"     		 rel="stylesheet"  media="screen" />
+  	<link type="text/css" href="static/fx.slide.css"  		 rel="stylesheet"  media="screen" />
+  	<link type="text/css" href="static/css/demo.css"  		 rel="stylesheet"  media="screen" />
+  	<link type="text/css" href="static/css/basic.css" 		 rel="stylesheet"  media="screen" />	
+  	<link type="text/css" href="static/css/fileuploader.css" rel="stylesheet"  media="screen" />	
 	
 	<!-- START Fx.Slide -->
     <!-- Mootools - the core -->
@@ -37,8 +38,11 @@
 	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
 <!--	<script type='text/javascript' src='js/jquery.js'></script>-->
 	<script type='text/javascript' src='static/js/jquery.simplemodal.js'></script> 
+	<script type='text/javascript' src='static/js/fileuploader.js'></script>
 	<script type="text/javascript" src="static/ajax.js"></script>
 	<script type="text/javascript" src="static/js/index.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+	<script type="text/javascript" src="client/client.js" ></script>
 	
 	
 
@@ -95,16 +99,17 @@
 				<form action="#" enctype="multipart/form-data" method="post" id="upload_form">
 					<p>
 						Input Data: <BR>
-						<input class="file" type="file" name="datafile" id="jsonFile" size="40">
+						<input class="file" type="file" name="jsonFile" id="jsonFile" size="40">
 					</p>
 					<p>
 						Map/Reduce File: <BR>
-						<input class="file" type="file" name="datafile" id="jobFile" size="40">
+						<input class="file" type="file" name="jobFile" id="jobFile" size="40">
 					</p>
 					<div>
 						<input type="submit" value="Send">
 					</div>
 				</form>
+				    
 				</div>
 			</div>
 			
