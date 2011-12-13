@@ -16,6 +16,7 @@ socket.on('task', function(data){
     /* TODO lock the worker while its being created */
     var jobid = data.jobid;
     if(!(jobid in workers)){
+        jQuery(window).trigger("worker.new", jobid);
         workers[jobid] = new MessagingWorker(jobid);
     }
     workers[jobid].emit('task', data);
@@ -26,6 +27,7 @@ socket.on('kill', function(jobid){
      * that they are finished before terminating the worker. */
     console.log('killing', jobid);
     if(jobid in workers){
+        jQuery(window).trigger("worker.killed", jobid);
         workers[jobid].worker.terminate();
     }
 });
