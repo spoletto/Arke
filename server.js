@@ -14,7 +14,7 @@ var connect = require('connect'),
     assert = require('assert').ok;
 
 var DUPLICATE_KEY_ERROR_CODE = 11000;
-var JOB_UPLOAD_DIRECTORY = "jobs/";
+var JOB_UPLOAD_DIRECTORY = __dirname + "/jobs/";
 var DEFAULT_REPLICATION_FACTOR = 3;
 
 var app = express.createServer(
@@ -36,7 +36,7 @@ app.configure(function() {
 
 app.get('/', function(req, res){
 	// Render the test_api screen for testing.
-	fs.readFile('index.html', function(error, content) {
+	fs.readFile(__dirname + '/index.html', function(error, content) {
 	        if (error) {
 	            res.writeHead(500);
 	            res.end();
@@ -162,14 +162,14 @@ app.post('/upload_job', function(req, res) {
 				var jsonData = null;
 				try {
 					// Is there a better way to validate the JSON?
-					jsonData = JSON.parse(fs.readFileSync(files.jsonFile.path, 'utf8'));
+					jsonData = JSON.parse(fs.readFileSync(__dirname + '/' + files.jsonFile.path, 'utf8'));
 				} catch(e) {
 					// Error parsing the user provided JSON file.
 					res.json({ status:'JSON_parse_error' });
 					return; 
 				}				
 				db.add_new_job(req.session.email_address, jsonData, DEFAULT_REPLICATION_FACTOR, function(err, job) {
-					fs.renameSync(files.jobFile.path, JOB_UPLOAD_DIRECTORY + job.job_id + '.js');
+					fs.renameSync(__dirname + '/' + files.jobFile.path, JOB_UPLOAD_DIRECTORY + job.job_id + '.js');
 					res.json({ status : 'upload_successful', job_id: job.job_id });
 				});
 			}
