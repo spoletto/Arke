@@ -181,9 +181,9 @@ app.listen(80);
 
 var io = require('socket.io').listen(app);
 
-var GLOBAL_GENERATION = 0;
-
 var MAX_TASKS_PER_WORKER = 4;
+var TASK_WAIT_TIME = 10000;
+var CHUNK_WAIT_TIME = 5000;
 
 io.sockets.on('connection', function (socket) {
     console.log(socket.id, 'connected');
@@ -237,7 +237,7 @@ io.sockets.on('connection', function (socket) {
 
             if(!work_unit){
                 console.log('retrying in 5');
-                setTimeout(function() { getChunkForTask(jobid); }, 5000);
+                setTimeout(function() { getChunkForTask(jobid); }, CHUNK_WAIT_TIME);
                 return;
             }
 
@@ -268,7 +268,7 @@ io.sockets.on('connection', function (socket) {
 
                 if(jobs.length <= nkeys(tasks)){
                     console.log('waiting since lesseq jobs',jobs.length,'than current tasks', nkeys(tasks)); 
-                    socket.emit('wait');
+                    setTimeout(function() { getTasks(); }, TASK_WAIT_TIME);
                     return;
                 }
 
