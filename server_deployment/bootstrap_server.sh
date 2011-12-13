@@ -1,4 +1,3 @@
-
 # Install the essentials.
 sudo apt-get update
 sudo apt-get -y upgrade
@@ -11,7 +10,7 @@ sudo apt-get install -y git-core
 wget http://nodejs.org/dist/node-latest.tar.gz
 tar xzf node-latest.tar.gz
 cd node-v0.6.4
-./configure --prefix=/usr
+sudo ./configure --prefix=/usr
 make
 sudo make install
 
@@ -23,14 +22,7 @@ sudo make install
 
 # Install the node modules we'll need.
 cd ~
-npm install express connect-form bcrypt assert mongoose
-
-# Install nginx.
-sudo apt-get install nginx
-
-# Download the nginx configuration file.
-sudo wget --output-document=/etc/nginx/sites-enabled/default https://raw.github.com/spoletto/SolveJS/master/server_deployment/nginx.conf
-sudo /etc/init.d/nginx restart
+npm install socket.io express connect connect-form bcrypt assert mongoose validator
 
 # Set up git remote master.
 mkdir ~/www
@@ -43,10 +35,11 @@ git init --bare
 cat > hooks/post-receive << EOF
 
 #!/bin/sh
-GIT_WORK_TREE=/root/www
+GIT_WORK_TREE=~/www
 export GIT_WORK_TREE
 git checkout -f
-sudo supervisorctl restart node
+sudo /sbin/stop nodeServer
+sudo /sbin/start nodeServer
 EOF
 
 chmod +x hooks/post-receive
@@ -55,18 +48,53 @@ chmod +x hooks/post-receive
 cd ~
 curl http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-2.0.1.tgz > mongo.tgz
 tar xzf mongo.tgz
-sudo mkdir -p /data/db
-sudo chown `id -u` /data/db
+mkdir -p /data/db
+chown `id -u` /data/db
 
-# Install supervisor
-sudo apt-get install python-setuptools
-sudo easy_install supervisor
+# Start up the mongod.
+nohup ~/mongodb-linux*/bin/mongod > /dev/null 2>&1 &
 
-# Install it as a service
-curl https://raw.github.com/gist/176149/88d0d68c4af22a7474ad1d011659ea2d27e35b8d/supervisord.sh > supervisord
-chmod +x supervisord
-sudo mv supervisord /etc/init.d/supervisord
+# Install Upstart
+sudo apt-get install -y upstart
 
-# Download the supervisor configuration file.
-sudo wget --output-document=/etc/supervisord.conf https://raw.github.com/spoletto/SolveJS/master/server_deployment/supervisord.conf
-supervisorctl reload
+cat > /tmp/nodeServer.conf << EOF
+#!upstart
+description "node.js server"
+author      "spoletto"
+
+start on startup
+stop on shutdown
+
+script
+	export HOME="/home/ubuntu"
+
+	exec sudo node /home/ubuntu/www/server.js >> /var/log/node.log 2>&1
+end script
+EOF
+
+sudo mv /tmp/nodeServer.conf /etc/init/nodeServer.conf
+sudo chown root /etc/init/nodeServer.conf
+sudo chmod 700 /etc/init/nodeServer.conf
+
+# Install Monit
+sudo apt-get install -y monit
+
+cat > /tmp/monitrc << EOF
+#!monit
+set logfile /var/log/monit.log
+
+check host nodejs with address 127.0.0.1
+    start program = "/sbin/start nodeServer"
+    stop program  = "/sbin/stop nodeServer"
+    if failed port 80 protocol HTTP
+        request /
+        with timeout 10 seconds
+        then restart
+EOF
+sudo mv /tmp/monitrc /etc/monit/monitrc
+sudo chown root /etc/monit/monitrc
+sudo chmod 700 /etc/monit/monitrc
+
+# Run the server.
+sudo start nodeServer
+sudo monit -d 60 -c /etc/monit/monitrc
