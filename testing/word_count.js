@@ -8,7 +8,7 @@
  * Date: 12-07-2011
  */
 
-importScripts('/worker.js');
+importScripts('/client/worker.js');
 
 map = function(data, emit){
 	data.split(" ").forEach(function(word) {
