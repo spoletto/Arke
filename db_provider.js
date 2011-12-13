@@ -27,7 +27,6 @@ var Job = new Schema({
 	phase : String, // ["Map", "Shuffle", "Reduce", "Finished"]
 	creator : String, // Email address of the user who created the job.
 	input_data : [ ObjectId ], // List of foreign keys pointing to the WorkUnit collection.
-	map_data : [ ObjectId ], // A mutable copy of the input_data, from which we dequeue work units.
 	reduce_data : [ ObjectId ],
 	output_data : [ String ],
 	initial_input_data_count : Number, // The number of WorkUnits in the input_data to begin.
