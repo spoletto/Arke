@@ -199,13 +199,11 @@ app.get('/results/:jobid.json', function(req, res) {
                 res.send(403);
                 return;
             }*/
-            if(job.phase != "Finished"){
+            if(!job || job.phase != "Finished"){
                 res.send(404);
                 return;
             }
 
-            console.dir(job.output_data[0]);
-            console.dir(job.output_data);
             res.json(JSON.stringify(job.output_data));
         });
     });

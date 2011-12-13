@@ -8,7 +8,9 @@
  * Date: 12-07-2011
  */
 
-JOB_ID = '4ee709772634e86aa8000003';
+JOB_IDS = ['4ee71b2caaa4f850af000003', '4ee71b2caaa4f850af000009', '4ee71b2caaa4f850af00000f', '4ee71b2caaa4f850af000015'];
 
-var db = require('./db_provider');
-db.reset_job(JOB_ID, function() { process.exit() });
+var db = require('../db_provider');
+for(var i in JOB_IDS){
+    db.reset_job(JOB_IDS[i], function(){});
+}
