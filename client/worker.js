@@ -22,12 +22,11 @@ function log(message){
 
 __handlers['task'] = function(data){
     var func = data.phase == 'Map' ? map : reduce;
+    var results = [];
     var emit = function(key, value){
-            __emitMessage('emit', {phase:   data.phase,
-                                   jobid:   data.jobid,
-                                   chunkid: data.chunkid,
-                                   key:     key,
-                                   value:   value});
+        var d = {};
+        d[key] = value;
+        results.push(d);
     };
 
     if(data.phase == 'Map'){
@@ -47,5 +46,6 @@ __handlers['task'] = function(data){
      * the contents of a 'done' callback passed to map/reduce*/
     __emitMessage('done', {phase:   data.phase,
                            jobid:   data.jobid,
-                           chunkid: data.chunkid});
+                           chunkid: data.chunkid,
+                           results: results});
 };

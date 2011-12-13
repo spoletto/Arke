@@ -64,9 +64,6 @@ function MessagingWorker(jobid){
     this.on('log', function(message){
         console.log(that.jobid + ':', message);
     });
-    this.on('emit', function(data){
-        socket.emit('emit', data);
-    });
     this.on('done', function(data){
         socket.emit('done', data);
     });
