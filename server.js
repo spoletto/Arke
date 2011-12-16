@@ -228,8 +228,10 @@ var _ = require('underscore');
 
 /* TODO wait for some amount of time if no tasks are available */
 everyone.now.getTask = function(retVal){
+	console.log("Getting task.");
     var user = this.user;
     db.Job.fetchTask(function(jobId, newTask, code){
+		console.log("Task fetched.");
         if (!newTask) return;
         var mapDatums = function(datum){
             return {k: JSON.parse(datum.key), v: JSON.parse(datum.value)};
@@ -238,17 +240,20 @@ everyone.now.getTask = function(retVal){
         var taskId = newTask.taskId;
         //console.log("Distributing task #", taskId, code, data);
         user.tasks.push({'jobId': jobId, 'task': newTask});
+		console.log("Got task.");
         retVal(taskId, code, data);
     });
 };
 
 everyone.now.completeTask = function(taskId, data, retVal){
+	console.log("Completed task.");
     this.user.tasks = _.reject(this.user.tasks, function(task) { return task.task.taskId == taskId; });
     var encodedData = _.map(data, function(datum){
         return {key: JSON.stringify(datum.k), value: JSON.stringify(datum.v)};
     });
     db.Job.commitResults(taskId, encodedData, function(jobId, status, percentage){
         //everyone.now.updateProgress(jobId,status,percentage);
+		console.log("Successfully committed.");
     });
     retVal("OK");
 };

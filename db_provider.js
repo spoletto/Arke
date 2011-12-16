@@ -33,7 +33,6 @@ schemas.Task = new Schema({
 
 schemas.RunningTask = new Schema({
     taskId: {type: String, default:uuid.v4, index: true},
-    heartbeat: {type: Date, index:true},
     data: [schemas.Datum]
 });
 
@@ -154,7 +153,6 @@ schemas.Job.methods.fetchTask = function(ret){
     var setRunning = function(data, pushTo){
         var newTask = {
             taskId: uuid.v4(),
-            heartbeat: new Date(),
             data: data
         };
         pushTo.push(newTask);
@@ -189,10 +187,10 @@ schemas.Job.statics.fetchTask = function(ret){
         if(err){
             console.error(err);
         } else if(!job){
-            //console.log("Couldn't find anything");
+            console.log("Couldn't find anything");
             ret(null);
         } else {
-            //console.log("Found something");
+            console.log("Found something");
             job.fetchTask(ret);
         }
     });
