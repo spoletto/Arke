@@ -227,6 +227,7 @@ var uuid = require('node-uuid');
 var _ = require('underscore');
 
 /* TODO wait for some amount of time if no tasks are available */
+/* TODO XXX reenqueue task if client disconnected while we fetched task */
 everyone.now.getTask = function(retVal){
 	console.log("Getting task.");
     var user = this.user;
@@ -263,7 +264,9 @@ everyone.on('join', function(){
 });
 
 everyone.on('leave', function(){
+    console.log('Client disconnected');
     _.each(this.user.tasks, function(task){
+        console.log('Restoring task', task.task.taskId, 'of job', task.jobId);
         db.Job.enqueueTask(task.jobId, task.task);
     });
 });
