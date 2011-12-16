@@ -170,8 +170,13 @@ app.post('/upload_job', function(req, res, next) {
                      console.error(err);
                  } else {
                      console.log("Submitted JOB!");
-                     db.associate_job_with_user(job, req.session.email_address);
-                     res.json({ status : 'upload_successful', job_id: job.job_id });
+                     db.associate_job_with_user(job, req.session.email_address, function(err){
+            		 	if(err){
+		                	console.error(err);
+						} else {
+							res.json({ status : 'upload_successful', job_id: job.job_id });
+						}
+					});
                  }
              });
            });

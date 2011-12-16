@@ -250,18 +250,14 @@ function add_new_user(email_address, password, callback) {
 	});
 }
 
-function associate_job_with_user(job, email_address) {
+function associate_job_with_user(job, email_address, callback) {
 	User.findOne({
 		email_address:email_address
 	}, function(err, user) {
 		if (err) { console.warn("Database error!"); return; }
 		if (!user) { console.warn("No such user!"); return; }
-		user.jobs.append(job._id);
-		user.save(function(err){
-            if(err){
-                console.error(err);
-			}
-		});
+		user.jobs.push(job._id);
+		user.save(callback);
 	});
 }
 
