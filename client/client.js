@@ -19,7 +19,7 @@ function MessagingWorker(jobid){
 
     function startNewTask(){
         now.getTask(function (taskId, code, data) {
-            console.log('Client received task', taskid);
+            console.log('Client received task', taskId);
             currentTaskId = taskId;
             worker.postMessage({action: 'code', code: code});
             worker.postMessage({action: 'data', data: data});

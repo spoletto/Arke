@@ -253,12 +253,12 @@ everyone.now.completeTask = function(taskId, data, retVal){
     retVal("OK");
 };
 
-everyone.connected = function(){
+everyone.on('join', function(){
     this.user.tasks = [];
-};
+});
 
-everyone.disconnected = function(){
+everyone.on('leave', function(){
     _.each(this.user.tasks, function(task){
         db.Job.enqueueTask(task.jobId, task.task);
     });
-};
+});
