@@ -37,18 +37,14 @@ app.configure(function() {
 app.get('/', function(req, res){
 	// Render the test_api screen for testing.
 	fs.readFile(__dirname + '/index.html', function(error, content) {
-	        if (error) {
-	            res.writeHead(500);
-	            res.end();
-	        }
-	        else {
-	            res.writeHead(200, { 'Content-Type': 'text/html' });
-	            res.end(content, 'utf-8');
-
-
-
-	        }
-	    });
+		if (error) {
+            res.writeHead(500);
+            res.end();
+        } else {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(content, 'utf-8');
+        }
+    });
 });
 
 // Session Management
@@ -63,12 +59,10 @@ function is_logged_in(req) {
  * If the user is logged in, the callback will be invoked.
  */
 function auth_required(req, res, callback) {
-    /*
 	if (!is_logged_in(req)) { 
 		res.json({ status: 'login_required' });
 		return;
 	}
-    */
 	callback();
 }
 
@@ -84,7 +78,6 @@ function auth_required(req, res, callback) {
 app.post('/login', function(req, res) {
 	var email_address = req.body.email_address;
 	var password = req.body.password;
-	console.log("LOGIN POST REQUEST RECEIVED with email " + email_address + " password " + password);
 	
 	db.User.findOne({
 		email_address:email_address
@@ -152,32 +145,41 @@ app.post('/register', function(req, res) {
  *    job_id: The job_id of the newly created job if the upload was successful.
  * }
  */
-app.post('/upload_job', function(req, res) {
-	auth_required(req, res, function() {
-		req.form.complete(function(err, fields, files) {
-			if (err) {
-				console.warn(err);
-				res.json({ status : 'error' }, 500);
-				return;
-			} else {
-				var jsonData = null;
-				try {
-					// Is there a better way to validate the JSON?
-					jsonData = JSON.parse(fs.readFileSync(__dirname + '/' + files.jsonFile.path, 'utf8'));
-				} catch(e) {
-					// Error parsing the user provided JSON file.
-					res.json({ status:'JSON_parse_error' });
-					return; 
-				}				
-				db.add_new_job(req.session.email_address, jsonData, fields.blurb, DEFAULT_REPLICATION_FACTOR, function(err, job) {
-					fs.renameSync(__dirname + '/' + files.jobFile.path, JOB_UPLOAD_DIRECTORY + job.job_id + '.js');
-					res.json({ status : 'upload_successful', job_id: job.job_id });
-				});
-			}
-		});
-	});
+app.post('/upload_job', function(req, res, next) {
+    auth_required(req, res, function() {
+       req.form.complete(function(err, fields, files){
+         if (err) {
+           next(err);
+         } else {
+           console.log("File Uploaded Successfully");
+           console.log(files);
+           console.log(fields);
+           fs.readFile(files.upload.path, 'ascii', function (err, filetext) {
+             if (err){
+                 console.error(err);
+             }
+             var job = new models.Job();
+             job.reducer = ("function(key,values,emit){" + fields.reduce + "}");
+             job.mapper = ("function(key,value,emit){" + fields.map + "}");
+             var json = JSON.parse(filetext);
+             job.mapInput = _.map(json, function(pair){
+                 return {data:[{key: JSON.stringify(pair.k), value:JSON.stringify(pair.v)}]}
+             });
+             job.save(function(err){
+                 if(err){
+                     console.error(err);
+                 } else {
+                     console.log("Submitted JOB!");
+                     db.associate_job_with_user(job, req.session.email_address);
+                     res.json({ status : 'upload_successful', job_id: job.job_id });
+                 }
+             });
+           });
+         }
+         res.redirect('/');
+       });
+    });
 });
-
 
 app.get('/info/:jobid', function(req, res) {
     /* TODO return some info to a worker about a job*/
@@ -187,142 +189,57 @@ app.get('/status/:jobid', function(req, res) {
     /* TODO return lots of info to a job owner about a job*/
 });
 
-app.get('/results/:jobid.json', function(req, res) {
-	auth_required(req, res, function() {
-        db.get_job(req.params.jobid, function(err, job){
-            if(err){
-                res.send(500);
-				return;
+app.get('/results/:id', function(req,res){
+    models.Job.findOne({jobId: req.params.id}, function(err, job){
+        if(err){
+            console.error(err);
+        } else {
+            if(job.status == "Done"){
+                var data = [];
+                _.each(job.reduceOutput,
+                    function(task){
+                         _.each(task.data, function(pair){data.push({k: JSON.parse(pair.key), v: JSON.parse(pair.value)})});
+                    }
+                );
+                res.end(JSON.stringify(data));
             }
-            /*
-            if(req.session.email_address != job.creator){
-                res.send(403);
-                return;
-            }*/
-            if(!job || job.phase != "Finished"){
-                res.send(404);
-                return;
-            }
-
-            res.json(JSON.stringify(job.output_data));
-        });
+        }
     });
 });
 
 app.listen(80);
 
-var io = require('socket.io').listen(app);
+// Websocket goodness...
 
-io.set('log level', 1);
+var nowjs = require("now");
+var everyone = nowjs.initialize(app);
 
-var MAX_TASKS_PER_WORKER = 4;
-var TASK_WAIT_TIME = 10000;
-var CHUNK_WAIT_TIME = 5000;
-
-io.sockets.on('connection', function (socket) {
-    console.log(socket.id, 'connected');
-    var tasks = {};
-
-    socket.on('disconnect', function(){
-        console.log(socket.id, 'disconnected');
-        console.dir(tasks);
-        for(jobid in tasks){
-            if(tasks[jobid] != null){
-                console.log('enqueueing chunk', tasks[jobid], 'after disconnect');
-                db.enqueue_work(jobid, tasks[jobid]);
-            }
-        }
-    });
-
-    socket.on('done', function(data){
-        console.log('finished chunk', data.chunkid);
-        if(data.phase == "Map"){
-            db.enqueue_intermediate_result(data.jobid, data.chunkid, data.results);
-        } else if(data.phase == "Reduce"){ 
-            db.enqueue_final_result(data.jobid, data.chunkid, data.results);
-        }
-
-        /* error check commits then do this, probably */
-        tasks[data.jobid] = null;
-        getChunkForTask(data.jobid);
-    });
-
-    function getChunkForTask(jobid){
-        console.log(socket.id, 'getting chunks for task', jobid);
-        if(tasks[jobid] != null || socket.disconnected)
-            return;
-
-        db.dequeue_work(jobid, function(err, work_unit, phase){
-            if(err) {
-                console.warn(err);
-                return;
-            }
-
-            if(phase == "Finished"){
-                if(jobid in tasks){
-                    assert(tasks[jobid] == null);
-                    console.log('killing job');
-                    delete tasks[jobid];
-                    socket.emit('kill', jobid);
-                    return getTasks();
-                } else {
-                    return;
-                }
-            } 
-
-            if(tasks[jobid] != null || socket.disconnected){
-                db.enqueue_work(jobid, work_unit._id);
-                return;
-            }
-
-            if(!work_unit){
-                console.log('retrying in 5');
-                setTimeout(function() { getChunkForTask(jobid); }, CHUNK_WAIT_TIME);
-                return;
-            }
-
-            assert(work_unit);
-
-            console.log('got chunk', work_unit._id, 'for job', jobid, 'in phase', phase);
-
-            var task = {phase: phase,
-                        jobid: jobid,
-                        chunkid: work_unit._id,
-                        data: work_unit.data};
-
-            tasks[jobid] = task.chunkid;
-            socket.emit('task', task);
-            return;
-        });
-    }
-
-    function getTasks(){
-        if(socket.disconnected)
-            return;
-
-        console.log(socket.id, 'getting tasks');
-        if(nkeys(tasks) < MAX_TASKS_PER_WORKER){
-            db.all_active_jobs(function(err, jobs){
-                if(err) { console.warn(err); return; }
-
-                if(jobs.length <= nkeys(tasks)){
-                    console.log('waiting since lesseq jobs',jobs.length,'than current tasks', nkeys(tasks)); 
-                    setTimeout(function() { getTasks(); }, TASK_WAIT_TIME);
-                    return;
-                }
-
-                var available_jobs = jobs.filter(function(j) { return !(j._id in tasks); });
-                var job = available_jobs[Math.floor(Math.random() * available_jobs.length)];
-                tasks[job._id] = null;
-                getChunkForTask(job._id);
-                getTasks();
-            });
-        }
-    }
-
-    getTasks();
-});
-
-function nkeys(o){
-    return Object.keys(o).length;
+everyone.now.logStuff = function(msg){
+    console.log(msg);
 }
+
+var uuid = require('node-uuid');
+var _ = require('underscore');
+
+everyone.now.getTask = function(retVal){
+    models.Job.fetchTask(function(newTask, code){
+        if (!newTask) return;
+        var mapDatums = function(datum){
+            return {k: JSON.parse(datum.key), v: JSON.parse(datum.value)};
+        };
+        var data = _.map(newTask.data, mapDatums);
+        var taskId = newTask.taskId;
+        //console.log("Distributing task #", taskId, code, data);
+        retVal(taskId, code, data);
+    });
+};
+
+everyone.now.completeTask = function(taskid, data, retVal){
+    var encodedData = _.map(data, function(datum){
+        return {key: JSON.stringify(datum.k), value: JSON.stringify(datum.v)};
+    });
+    models.Job.commitResults(taskid, encodedData, function(jobId, status, percentage){
+        //everyone.now.updateProgress(jobId,status,percentage);
+    });
+    retVal("OK");
+};
