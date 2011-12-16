@@ -22,7 +22,7 @@ sudo make install
 
 # Install the node modules we'll need.
 cd ~
-npm install socket.io express connect connect-form bcrypt assert mongoose validator
+npm install socket.io express connect connect-form bcrypt assert mongoose validator now underscore node-uuid
 
 # Set up git remote master.
 mkdir ~/www
