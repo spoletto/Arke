@@ -7,8 +7,10 @@ jQuery(document).ready(function(){
             return;
         }
 
-        for(var i in _.range(NWORKERS))
+        for(var i in _.range(NWORKERS)){
+            console.log('Creating worker', i);
             new MessagingWorker();
+        }
     });
 });
 
@@ -18,6 +20,7 @@ function MessagingWorker(jobid){
     var currentTaskId;
 
     function startNewTask(){
+        console.log('Client requesting task');
         now.getTask(function (taskId, code, data) {
             console.log('Client received task', taskId);
             currentTaskId = taskId;
