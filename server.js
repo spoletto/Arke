@@ -158,7 +158,7 @@ app.post('/upload_job', function(req, res, next) {
              if (err){
                  console.error(err);
              }
-             var job = new models.Job();
+             var job = new db.Job();
              job.reducer = ("function(key,values,emit){" + fields.reduce + "}");
              job.mapper = ("function(key,value,emit){" + fields.map + "}");
              var json = JSON.parse(filetext);
@@ -195,7 +195,7 @@ app.get('/status/:jobid', function(req, res) {
 });
 
 app.get('/results/:id', function(req,res){
-    models.Job.findOne({jobId: req.params.id}, function(err, job){
+    db.Job.findOne({jobId: req.params.id}, function(err, job){
         if(err){
             console.error(err);
         } else {
@@ -227,7 +227,7 @@ var uuid = require('node-uuid');
 var _ = require('underscore');
 
 everyone.now.getTask = function(retVal){
-    models.Job.fetchTask(function(newTask, code){
+    db.Job.fetchTask(function(newTask, code){
         if (!newTask) return;
         var mapDatums = function(datum){
             return {k: JSON.parse(datum.key), v: JSON.parse(datum.value)};
@@ -243,7 +243,7 @@ everyone.now.completeTask = function(taskid, data, retVal){
     var encodedData = _.map(data, function(datum){
         return {key: JSON.stringify(datum.k), value: JSON.stringify(datum.v)};
     });
-    models.Job.commitResults(taskid, encodedData, function(jobId, status, percentage){
+    db.Job.commitResults(taskid, encodedData, function(jobId, status, percentage){
         //everyone.now.updateProgress(jobId,status,percentage);
     });
     retVal("OK");
