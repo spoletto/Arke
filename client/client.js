@@ -7,7 +7,7 @@ jQuery(document).ready(function(){
             return;
         }
 
-        for(var i in _.range(NWORKERS)){
+        for(var i = 0; i < NWORKERS; i++){
             console.log('Creating worker', i);
             new MessagingWorker();
         }
