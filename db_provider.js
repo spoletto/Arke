@@ -165,7 +165,7 @@ schemas.Job.methods.fetchTask = function(ret){
             if(err){
                 console.error(err);
             } else {
-                ret(newTask, code);
+                ret(job.jobId, newTask, code);
             }
         }); 
     }
@@ -182,6 +182,20 @@ schemas.Job.methods.fetchTask = function(ret){
     } else {
         console.warn("Can't get any jobs from this guy.");
     }
+};
+
+schemas.Job.statics.fetchTask = function(ret){
+    this.findOne({'jobsAvailable': true}, function(err, job){
+        if(err){
+            console.error(err);
+        } else if(!job){
+            //console.log("Couldn't find anything");
+            ret(null);
+        } else {
+            //console.log("Found something");
+            job.fetchTask(ret);
+        }
+    });
 };
 
 schemas.Job.methods.enqueueTask = function(task) {	
@@ -207,16 +221,14 @@ schemas.Job.methods.enqueueTask = function(task) {
 	});
 }
 
-schemas.Job.statics.fetchTask = function(ret){
-    this.findOne({'jobsAvailable': true}, function(err, job){
+schemas.Job.statics.enqueueTask = function(jobId, task){
+    this.findOne({'jobId': jobId}, function(err, job){
         if(err){
             console.error(err);
         } else if(!job){
-            //console.log("Couldn't find anything");
-            ret(null);
+            console.error("Tried to re-enqueue work but job no longer exists!! jobId:", jobId);
         } else {
-            //console.log("Found something");
-            job.fetchTask(ret);
+            job.enqueueTask(task);
         }
     });
 };
