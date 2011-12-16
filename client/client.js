@@ -14,7 +14,7 @@ jQuery(document).ready(function(){
 
 function MessagingWorker(jobid){
     var that = this;
-    var worker = new Worker('/worker.js');
+    var worker = new Worker('/client/worker.js');
     var currentTaskId;
 
     function startNewTask(){
