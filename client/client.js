@@ -7,7 +7,7 @@ jQuery(document).ready(function(){
             return;
         }
 
-        for(i in _.range(NWORKERS))
+        for(var i in _.range(NWORKERS))
             new MessagingWorker();
     });
 });
@@ -19,6 +19,7 @@ function MessagingWorker(jobid){
 
     function startNewTask(){
         now.getTask(function (taskId, code, data) {
+            console.log('Client received task', taskid);
             currentTaskId = taskId;
             worker.postMessage({action: 'code', code: code});
             worker.postMessage({action: 'data', data: data});
@@ -27,6 +28,7 @@ function MessagingWorker(jobid){
 
     worker.onmessage = function(event){
         if(event.data.action === 'completeTask'){
+            console.log('Client completed task', currentTaskId);
             now.completeTask(currentTaskId, event.data.data, function() {});
             startNewTask();
         } else if (event.data.action === 'log'){
