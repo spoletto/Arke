@@ -49,7 +49,7 @@ app.get('/upload', function(req, res) {
 });
 
 app.get('/', function(req, res) {
-	fs.readFile(__dirname + '/test_api.html', function(error, content) {
+	fs.readFile(__dirname + '/index.html', function(error, content) {
 		if (error) {
             res.writeHead(500);
             res.end();
