@@ -22,7 +22,7 @@ sudo make install
 
 # Install the node modules we'll need.
 cd ~
-npm install socket.io express connect connect-form bcrypt assert mongoose validator
+npm install socket.io express connect connect-form bcrypt assert mongoose validator now underscore node-uuid
 
 # Set up git remote master.
 mkdir ~/www
@@ -45,14 +45,12 @@ EOF
 chmod +x hooks/post-receive
 
 # Install MongoDB
-cd ~
-curl http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-2.0.1.tgz > mongo.tgz
-tar xzf mongo.tgz
-mkdir -p /data/db
-chown `id -u` /data/db
+sudo apt-get install -y mongodb-server
+sudo mkdir -p /data/db
+sudo chown `id -u` /data/db
 
 # Start up the mongod.
-nohup ~/mongodb-linux*/bin/mongod > /dev/null 2>&1 &
+sudo start mongodb
 
 # Install Upstart
 sudo apt-get install -y upstart

@@ -1,51 +1,18 @@
-var __handlers = {};
+importScripts('underscore.js');
+var code;
 
-function __emitMessage(action, data){
-    postMessage({action: action, data: data});
-}
+self.onmessage = function (event){
+    if(event.data.action === 'code'){
+        eval('code = ' + event.data.code);
+    } else if (event.data.action === 'data'){
+        self.postMessage({action: 'log', message: 'Processing task... '});
+        var output = [];
+        code(event.data.data.k, event.data.data.v, function(k, v){
+            output.push({'k': k, 'v': v});
+        });
 
-onmessage = function(event){
-    if ("data" in event &&
-        "action" in event.data && 
-        "data" in event.data && 
-        event.data.action in __handlers){
-        __handlers[event.data.action](event.data.data);
-    }
-}
-
-var map = function(key, value){};
-var reduce = function(key, values){};
-
-function log(message){
-    __emitMessage('log', message);
-}
-
-__handlers['task'] = function(data){
-    var func = data.phase == 'Map' ? map : reduce;
-    var results = [];
-    var emit = function(key, value){
-        var d = {};
-        d[key] = value;
-        results.push(d);
-    };
-
-    if(data.phase == 'Map'){
-        map(data.data, emit);
-    } else if(data.phase == 'Reduce'){
-        if(!("key" in data.data && "values" in data.data)){
-            log("reduce data must be of form {'key': ..., 'values': ...}");
-            return;
-        }
-        reduce(data.data.key, data.data.values, emit);
+        self.postMessage({action: 'completeTask', data: output}); 
     } else {
-        log('invalid phase!');
-        return;
+        self.postMessage({action: 'log', message: 'Unrecognized action: ' + event.data.action});
     }
-
-    /* XXX i may totally misunderstand callbacks, in which case this should be 
-     * the contents of a 'done' callback passed to map/reduce*/
-    __emitMessage('done', {phase:   data.phase,
-                           jobid:   data.jobid,
-                           chunkid: data.chunkid,
-                           results: results});
-};
+}
