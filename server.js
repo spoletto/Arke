@@ -6,6 +6,9 @@
 
 var connect = require('connect'),
     express = require('express'),
+    http = require('http'),
+    util = require('util'),
+    formidable = require('formidable'),
 	db = require('./redis_db'),
 	config = require('./config'),
 	form = require('connect-form'),
