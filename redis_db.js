@@ -1,6 +1,7 @@
 var uuid = require('node-uuid');
 var _ = require('underscore');
 var assert = require('assert').ok;
+var bcrypt = require('bcrypt');
 var redis = require("redis"),
     client = redis.createClient();
 
@@ -59,7 +60,37 @@ function k_runnable() {
 	return "runnableTasks";
 }
 
-// TODO: Cache job original input.
+function k_user_password(email_address) {
+	return email_address + "_password";
+}
+
+function k_user_jobs(email_address) {
+	return email_address + "_jobs";
+}
+
+// Callback: function(err).
+// err will be set to "EXISTS" if the email_address has already been taken.
+function new_user(email_address, password, callback) {
+	client.exists(k_user_password(email_address), function(err, exists) {
+		if (exists) { callback("EXISTS"); return; }
+		
+		// Hash the password using a salt.
+		bcrypt.gen_salt(10, function(err, salt) {
+		    bcrypt.encrypt(password, salt, function(err, hash) {
+				client.set(k_user_password(email_address), hash, callback);
+		    });
+		});
+	});
+}
+
+// Callback: function(err, password).
+// err will be set to "NOT_EXISTS" if the email_address doesn't exist in the database.
+function get_user(email_address, callback) {
+	client.exists(k_user_password(email_address), function(err, exists) {
+		if (!exists) { callback("NOT_EXISTS", null); return; }
+		client.get(k_user_password(email_address), callback);
+	});
+}
 
 // Input_data: Array [{ "k":k, "v":v }]
 // Callback: function(err, job_id)
@@ -125,7 +156,7 @@ function enqueue_work(job_id, chunk_id) {
 
 // TODO: Destroy job function.
 
-function enqueue_result(job_id, chunk_id, result, callback) {
+function enqueue_result(job_id, chunk_id, result) {
 	
 	var groupByComplete = function(groupByData) {
 		// Reset the 'in' count and 'out' count.
@@ -260,3 +291,5 @@ exports.dequeue_work = dequeue_work;
 exports.client = client;
 exports.fetch_job = fetch_job;
 exports.enqueue_result = enqueue_result;
+exports.new_user = new_user;
+exports.get_user = get_user;
