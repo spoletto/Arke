@@ -251,6 +251,7 @@ everyone.now.getTask = function(retVal){
 
 everyone.now.completeTask = function(task, data, retVal){
 	console.log("Completed task.");
+    assert(!!task.job_id && !!task.chunk_id);
     var task = _.filter(this.user.tasks, function(t) { return t.job_id == task.job_id && t.chunk_id == task.chunk_id; });
     this.user.tasks = _.reject(this.user.tasks, function(t) { return t.job_id == task.job_id && t.chunk_id == task.chunk_id; });
     db.enqueue_result(task.job_id, task.chunk_id, data);
