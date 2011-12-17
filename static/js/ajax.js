@@ -2,9 +2,7 @@
 jQuery(document).ready(function($) {
 	// Set up the function to POST login credentials.
 	$('#login_form').submit(function() {
-		console.log("In submit callback");
- 		$.post('/login', $("#login_form").serialize(), function(data) {
-  			alert(data['status']);
+ 		jQuery.post('/login', $("#login_form").serialize(), function(data) {
   			if (data['status'] == 'login_successful') {
  				console.log("success");
   			} else if (data['status'] == 'bad_email') {
@@ -19,3 +17,5 @@ jQuery(document).ready(function($) {
 	});
 	$.noConflict();
 });
+
+

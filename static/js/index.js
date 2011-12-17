@@ -1,3 +1,5 @@
+
+
 function setCookie(key, value) {  
    	var expires = new Date();  
     expires.setTime(expires.getTime() + 31536000000); //1 year  
@@ -8,11 +10,14 @@ function getCookie(key) {
   	 var keyValue = document.cookie.match('(^|;) ?' + key + '=([^;]*)(;|$)');  
    	 return keyValue ? keyValue[2] : null;  
  } 
+jQuery.noConflict();
 
 function login(name){
 		console.log(name);
  		jQuery.post('/login', jQuery("#login_form").serialize(), function(data) {
+ 			console.log("GOT HERE");
   			if (data['status'] == 'login_successful') {
+  				alert(status);
   				/*login successful*/
   				// hide login stuff
   				jQuery('#login_form').fadeOut('slow', function(){
@@ -56,116 +61,10 @@ jQuery(document).ready(function($) {
 		jQuery('#login_name').html(getCookie('solvejs'));
 	}
 	//set the login listener
-	$('#login_form').submit(function(req, res) {
+	$('#login_form').submit(function() {
 		login($(":input").val());	
 	});
-	
-	//set the upload listener
-	$('#upload_form').submit(function() {
-		console.log("In upload callback");
- 		$.post('/upload_job', $("#upload_form").serialize(), function(data) {
-  			alert(data['status']);
-  			if (data['status'] == 'upload_succesful') {
- 				console.log("success");
-  			} else if (data['status'] == 'JSON_parse_error') {
- 				console.log("JSON_parse_error");
-  			} else if (data['status'] == 'error') {
- 				console.log("error");
-  			} else {
- 				console.log("unknown response");
-   			}
-  		});
-  		return false;
-	});
-	
-//ON ACTION EVENTS	
-	$('#upload_job').click(function(){
-		if(getCookie('solvejs') != "") {
-			/* Pop up the modal */
-			console.log("UPLOAD JOB");
-			$('#basic-modal-content').modal();
-		}else{
-			alert("Must be logged in to upload data");
-		}
 		
-	});
-	
-	$('#toggleLogout').click(function(){
-		//hide logout stuff
-		$('#toggleLogout').hide();
-		setCookie('solvejs',"");
-		$('#login_name').html(getCookie('solvejs'));
-		// show login stuff
-		$('#login_form').fadeIn('slow', function(){
-		});
-		$('#logintxt').show();
-		$('#toggleLogin').show();
-		
-	});
-	
-	
-	
-	//Hide the register div
-	$('#register_link').click(function(){
-		$('#logintxt').fadeOut('slow', function(){
-			//fadeout done
-			$('#registertxt').fadeIn('slow', function(){
-			//fadein done
-			});
-		});
-		$('#login_submit').fadeOut('slow', function(){
-			//fadeout done
-			$('#register_submit').fadeIn('slow', function(){
-			//fadein done
-			});
-		});
-		
-		//remove the login listener
-		$('#login_form').unbind('submit');
-		
-		//add the register listener
-		$('#login_form').submit(function() {
-			console.log("In register callback");
-	 		$.post('/register', $("#login_form").serialize(), function(data) {
-	  			alert(data['status']);
-	  			if (data['status'] == 'registration_successful') {
-	 				console.log("success");
-	  			} else if (data['status'] == 'email_taken') {
-	 				console.log("email already taken");
-	  			} else if (data['status'] == 'error') {
-	 				console.log("error");
-	  			} else {
-	 				console.log("unknown response");
-	   			}
-	  		});
-	  		return false;
-		});
-	});
-	
-	//Hide the register div
-	$('#login_link').click(function(){
-		$('#registertxt').fadeOut('slow', function(){
-			//fadeout done
-			$('#logintxt').fadeIn('slow', function(){
-			//fadein done
-			});
-		});
-		$('#register_submit').fadeOut('slow', function(){
-			//fadeout done
-			$('#login_submit').fadeIn('slow', function(){
-			//fadein done
-			});
-		});
-
-		//remove the register listener
-		$('#login_form').unbind('submit');
-		
-		
-		//reset the login listener
-		$('#login_form').submit(function(req, res) {
-			login($(":input").val());	
-		});
-	});	
 });
 
 jQuery(window).unload( function () { 
