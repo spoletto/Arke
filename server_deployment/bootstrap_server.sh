@@ -44,10 +44,6 @@ EOF
 
 chmod +x hooks/post-receive
 
-# Install Redis
-sudo apt-get install -y redis-server
-nohup redis-server > /dev/null 2>&1 &
-
 # Install Upstart
 sudo apt-get install -y upstart
 
@@ -69,6 +65,27 @@ EOF
 sudo mv /tmp/nodeServer.conf /etc/init/nodeServer.conf
 sudo chown root /etc/init/nodeServer.conf
 sudo chmod 700 /etc/init/nodeServer.conf
+
+# Install Redis
+sudo apt-get install -y redis-server
+sudo update-rc.d redis-server disable
+sudo wget --output-document=/etc/redis/redis.conf https://raw.github.com/spoletto/SolveJS/master/server_deployment/redis.conf
+
+cat > /tmp/redis.conf << EOF
+#!upstart
+description "redis server"
+author      "spoletto"
+
+start on runlevel [23]
+stop on shutdown
+
+exec sudo -u redis /usr/bin/redis-server /etc/redis/redis.conf
+
+respawn
+EOF
+
+sudo mv /tmp/redis.conf /etc/init/redis-server.conf
+sudo start redis-server
 
 # Install Monit
 sudo apt-get install -y monit
