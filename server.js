@@ -191,6 +191,14 @@ app.post('/upload_job', function(req, res, next) {
     });
 });
 
+/* Job status endpoint. Useful for checking the completion progress of a task.
+ * RESPONSE: {
+ *    phase: ["Finished", "Map", "Reduce"]
+ *    blurb: "Job description"
+ *    total_task_count: "5089"     // Only present if phase is not "Finished"
+ *    completed_task_count: "1009" // Only present if phase is not "Finished"
+ * }
+ */
 app.get('/status/:id', function(req, res) {	
 	var job_id = req.params.id;
 	
@@ -215,6 +223,16 @@ app.get('/status/:id', function(req, res) {
 	});
 });
 
+/* Job results endpoint.
+ *
+ * If the job is still currently processing:
+ * RESPONSE: {
+ *    status: "not_finished"
+ * }
+ * 
+ * If the job is indeed finished:
+ * RESPONSE: JSON output data.
+ */
 app.get('/results/:id', function(req,res){
 	var job_id = req.params.id;
 	db.phase(job_id, function(err, phase) {
