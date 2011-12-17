@@ -245,7 +245,7 @@ app.get('/results/:id', function(req,res){
 	});
 });
 
-app.listen(8000);
+app.listen(80);
 
 // Websocket goodness...
 
@@ -276,10 +276,16 @@ everyone.now.getTask = function(retVal){
             return;
         }
 		console.log("Task fetched.");
-		// IS SOCKET DISCONNECTED?
-        var task = {'job_id': job_id, 'chunk_id': chunk_id};
-        user.tasks.push(task);
-        retVal(task, code, chunk);
+		var task = {'job_id': job_id, 'chunk_id': chunk_id};
+		
+		if (!user.connected) {
+			console.log("User disconnected!");
+			console.log('Restoring chunk', task.chunk_id, 'of job', task.job_id);
+	        db.enqueue_work(task.job_id, task.chunk_id);
+		} else {
+			user.tasks.push(task);
+	        retVal(task, code, chunk);
+		}
     });
 };
 
@@ -292,17 +298,19 @@ everyone.now.completeTask = function(task, data, retVal){
 		return t.job_id == task.job_id && t.chunk_id == task.chunk_id;
 	});
 	console.log("User tasks after reject");
-	console.dir(this.user.tasks);    
+	console.dir(this.user.tasks);
 	db.enqueue_result(task.job_id, task.chunk_id, data);
     retVal("OK");
 };
 
 everyone.on('join', function(){
     this.user.tasks = [];
+	this.user.connected = true;
 });
 
 everyone.on('leave', function(){
     console.log('Client disconnected');
+	this.user.connected = false;
     _.each(this.user.tasks, function(task){
         console.log('Restoring chunk', task.chunk_id, 'of job', task.job_id);
         db.enqueue_work(task.job_id, task.chunk_id);
