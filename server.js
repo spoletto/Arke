@@ -191,12 +191,28 @@ app.post('/upload_job', function(req, res, next) {
     });
 });
 
-app.get('/info/:jobid', function(req, res) {
-    /* TODO return some info to a worker about a job*/
-});
-
-app.get('/status/:jobid', function(req, res) {
-    /* TODO return lots of info to a job owner about a job*/
+app.get('/status/:id', function(req, res) {	
+	var job_id = req.params.id;
+	
+	db.blurb(job_id, function(err, blurb) {
+		db.phase(job_id, function(err, phase) {
+			if (phase == "Finished") {
+				res.json({
+					'phase' : 'Finished',
+					'blurb' : blurb
+				});
+				return;
+			}
+			db.completion_status_for_current_phase(job_id, function(err, in_count, out_count) {
+				res.json({
+					'blurb' : blurb,
+					'phase' : phase,
+					'total_task_count' : in_count,
+					'completed_task_count' : out_count
+				});
+			});
+		});
+	});
 });
 
 app.get('/results/:id', function(req,res){

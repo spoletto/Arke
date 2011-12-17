@@ -1,4 +1,4 @@
-var NWORKERS = 4;
+var NWORKERS = 1;
 
 jQuery(document).ready(function(){
     now.ready(function(){
@@ -23,7 +23,7 @@ function MessagingWorker(jobid){
     function startNewTask(){
         console.log('Client requesting task');
         now.getTask(function (task, code, data) {
-            console.log('Client received task', taskId);
+            console.log('Client received chunk', task.chunk_id, 'of job', task.job_id);
             currentTask = task;
             worker.postMessage({action: 'code', code: code});
             worker.postMessage({action: 'data', data: data});

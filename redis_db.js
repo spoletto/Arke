@@ -211,6 +211,20 @@ function phase(job_id, callback) {
 	client.get(k_phase(job_id), callback);
 }
 
+// Callback: function(err, blurb).
+function blurb(job_id, callback) {
+	client.get(k_blurb(job_id), callback);
+}
+
+// Callback: function(err, in_count, out_count)
+function completion_status_for_current_phase(job_id, callback) {
+	client.get(k_in_count(job_id), function(err, in_count) {
+		client.get(k_out_count(job_id), function(err, out_count) {
+			callback(err, in_count, out_count);
+		});
+	});
+}
+
 function enqueue_work(job_id, chunk_id) {
 	assert(!!job_id);
 	assert(!!chunk_id);
@@ -370,3 +384,5 @@ exports.user_password_correct = user_password_correct;
 exports.get_user_jobs = get_user_jobs;
 exports.results = results;
 exports.phase = phase;
+exports.blurb = blurb;
+exports.completion_status_for_current_phase = completion_status_for_current_phase;
