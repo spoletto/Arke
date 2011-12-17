@@ -9,7 +9,7 @@
  * Date: 12-07-2011
  */
 
-var db = require('../db_provider'),
+var db = require('../redis_db'),
     fs = require('fs'),
     _ = require('underscore');
 
@@ -24,25 +24,9 @@ try {
 var map = "function(key, value, emit){ value.split(' ').forEach(function(word) { emit(word, 1); }); }";
 var reduce = "function(key, values, emit){ emit(key, values.length); }";
 
-db.add_new_user("spoletto@cs.brown.edu", "password", function(err) {
-	var job = new db.Job();
-	job.reducer = reduce;
-	job.mapper = map;
-	job.mapInput = _.map(inputJSON, function(pair){
-		return {data:[{key: JSON.stringify(pair.k), value:JSON.stringify(pair.v)}]}
+db.new_user("spoletto@cs.brown.edu", "password", function(err) {
+	db.new_job("spoletto@cs.brown.edu", inputJSON, 2, map, reduce, "blurb", function(err, job_id) {
+		console.log("Submitted job with ID = " + job_id);
+		process.exit();
 	});
-
-	job.save(function(err){
-    	if(err){
-			console.error(err);
-		} else {
-			console.log("Submitted job with ID = " + job._id);
-			db.associate_job_with_user(job, "spoletto@cs.brown.edu", function(err) {
-				if(err){
-					console.error(err);
-				}
-				process.exit();
-			});
-		}
-    });
 });

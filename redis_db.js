@@ -24,6 +24,10 @@ function k_replication_factor(job_id) {
 	return job_id + "_replicationFactor";
 }
 
+function k_blurb(job_id) {
+	return job_id + "_blurb";
+}
+
 function k_work_queue(job_id) {
 	return job_id + "_workQueue";
 }
@@ -105,7 +109,7 @@ function get_user_jobs(email_address, callback) {
 
 // Input_data: Array [{ "k":k, "v":v }]
 // Callback: function(err, job_id)
-function new_job(email_address, input_data, replication_factor, map_code, reduce_code, callback) {	
+function new_job(email_address, input_data, replication_factor, map_code, reduce_code, blurb, callback) {	
 	// Need to initialize the map_input and work_queue.
 	var job_id = uuid.v4();
 	input_data.forEach(function(item) {
@@ -123,6 +127,7 @@ function new_job(email_address, input_data, replication_factor, map_code, reduce
 	client.set(k_phase(job_id), "Map");
 	client.set(k_map_code(job_id), map_code);
 	client.set(k_reduce_code(job_id), reduce_code);
+	client.set(k_blurb(job_id), blurb);
 	client.sadd(k_runnable(), job_id);
 	client.sadd(k_user_jobs(email_address), job_id);
 	callback(null, job_id);
