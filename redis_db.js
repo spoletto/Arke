@@ -384,6 +384,12 @@ function enqueue_result(job_id, chunk_id, result) {
 	});
 }
 
+function jobs_available(callback){
+    client.scard(k_runnable(), function(err, card){
+        callback(err, card > 0);
+    });
+}
+
 // Public API export.
 exports.new_job = new_job;
 exports.dequeue_work = dequeue_work;
@@ -398,3 +404,4 @@ exports.results = results;
 exports.phase = phase;
 exports.blurb = blurb;
 exports.completion_status_for_current_phase = completion_status_for_current_phase;
+exports.jobs_available = jobs_available;

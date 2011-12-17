@@ -1,4 +1,5 @@
 var NWORKERS = 1;
+var eventLog = [];
 
 jQuery(document).ready(function(){
     now.ready(function(){
@@ -21,9 +22,9 @@ function MessagingWorker(jobid){
     var currentTask;
 
     function startNewTask(){
-        console.log('Client requesting task');
+        logEvent("FETCH");
         now.getTask(function (task, code, data) {
-            console.log('Client received chunk', task.chunk_id, 'of job', task.job_id);
+            logEvent("START");
             currentTask = task;
             worker.postMessage({action: 'code', code: code});
             worker.postMessage({action: 'data', data: data});
@@ -32,7 +33,7 @@ function MessagingWorker(jobid){
 
     worker.onmessage = function(event){
         if(event.data.action === 'completeTask'){
-            console.log('Client completed task', currentTask);
+            logEvent("COMPLETE");
             now.completeTask(currentTask, event.data.data, function() {});
             startNewTask();
         } else if (event.data.action === 'log'){
@@ -43,4 +44,12 @@ function MessagingWorker(jobid){
     };
 
     startNewTask();
+}
+
+now.collectLog = function(callback){
+    callback(eventLog);
+};
+
+function logEvent(label){
+    eventLog.push({type: label, time: new Date().getTime()});
 }
