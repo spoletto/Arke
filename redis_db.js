@@ -5,6 +5,9 @@ var bcrypt = require('bcrypt');
 var redis = require("redis"),
     client = redis.createClient();
 
+// TODO: Add data validation (i.e. make sure the input)
+// matches specification for each of the API functions.
+
 client.on("error", function (err) {
     console.log("Error " + err);
 });
@@ -75,6 +78,10 @@ function k_user_jobs(email_address) {
 // Callback: function(err).
 // err will be set to "EXISTS" if the email_address has already been taken.
 function new_user(email_address, password, callback) {
+	assert(!!email_address);
+	assert(!!password);
+	assert(!!callback);
+	
 	client.exists(k_user_password(email_address), function(err, exists) {
 		if (exists) { callback("EXISTS"); return; }
 		
@@ -90,6 +97,10 @@ function new_user(email_address, password, callback) {
 // Callback: function(err, pw_success).
 // err will be set to "NOT_EXISTS" if the email_address doesn't exist in the database.
 function user_password_correct(email_address, test_password, callback) {
+	assert(!!email_address);
+	assert(!!test_password);
+	assert(!!callback);
+	
 	client.exists(k_user_password(email_address), function(err, exists) {
 		if (!exists) { callback("NOT_EXISTS", null); return; }
 		client.get(k_user_password(email_address), function(err, password) {
@@ -101,6 +112,9 @@ function user_password_correct(email_address, test_password, callback) {
 // Callback: function(err, jobs).
 // err will be set to "NOT_EXISTS" if the email_address doesn't exist in the database.
 function get_user_jobs(email_address, callback) {
+	assert(!!email_address);
+	assert(!!callback);
+	
 	client.exists(k_user_password(email_address), function(err, exists) {
 		if (!exists) { callback("NOT_EXISTS", null); return; }
 		client.smembers(k_user_jobs(email_address), callback);
@@ -109,7 +123,15 @@ function get_user_jobs(email_address, callback) {
 
 // Input_data: Array [{ "k":k, "v":v }]
 // Callback: function(err, job_id)
-function new_job(email_address, input_data, replication_factor, map_code, reduce_code, blurb, callback) {	
+function new_job(email_address, input_data, replication_factor, map_code, reduce_code, blurb, callback) {
+	assert(!!callback);
+	assert(!!email_address);
+	assert(!!input_data);
+	assert(!!replication_factor);
+	assert(!!map_code);
+	assert(!!reduce_code);
+	assert(!!blurb);
+	
 	// Need to initialize the map_input and work_queue.
 	var job_id = uuid.v4();
 	input_data.forEach(function(item) {
@@ -135,12 +157,13 @@ function new_job(email_address, input_data, replication_factor, map_code, reduce
 
 // Callback: function(err, job_id)
 function fetch_job(callback) {
+	assert(!!callback);
 	client.srandmember(k_runnable(), callback);
 }
 
 // Callback should be function (err, job_id, chunk_id, chunk, map/reduce_code).
 function dequeue_work(callback) {
-	
+	assert(!!callback);
 	var getPhaseSpecificCode = function(job_id, chunk_id, chunk) {
 		client.get(k_phase(job_id), function(err, phase) {
 			if (phase == "Map") {
@@ -168,13 +191,17 @@ function dequeue_work(callback) {
 }
 
 function enqueue_work(job_id, chunk_id) {
+	assert(!!job_id);
+	assert(!!chunk_id);
 	client.lpush(k_work_queue(job_id), chunk_id);
 }
 
 // TODO: Destroy job function.
 
 function enqueue_result(job_id, chunk_id, result) {
-	
+	assert(!!job_id);
+	assert(!!chunk_id);
+	assert(!!result);
 	var groupByComplete = function(groupByData) {
 		// Reset the 'in' count and 'out' count.
 		var newInCount = Object.keys(groupByData).length;
@@ -305,6 +332,7 @@ function enqueue_result(job_id, chunk_id, result) {
 // Public API export.
 exports.new_job = new_job;
 exports.dequeue_work = dequeue_work;
+exports.enqueue_work = enqueue_work;
 exports.client = client;
 exports.fetch_job = fetch_job;
 exports.enqueue_result = enqueue_result;
