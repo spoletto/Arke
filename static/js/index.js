@@ -1,4 +1,22 @@
+var mySlide;
+window.addEvent('domready', function(){
 
+	$('login').setStyle('height','auto');
+	mySlide = new Fx.Slide('login').hide();  //starts the panel in closed state  
+
+    $('toggleLogin').addEvent('click', function(e){
+		e = new Event(e);
+		mySlide.toggle();
+		e.stop();
+	});
+
+    $('closeLogin').addEvent('click', function(e){
+		e = new Event(e);
+		mySlide.slideOut();
+		e.stop();
+	});
+
+});
 
 function setCookie(key, value) {  
    	var expires = new Date();  
@@ -10,12 +28,10 @@ function getCookie(key) {
   	 var keyValue = document.cookie.match('(^|;) ?' + key + '=([^;]*)(;|$)');  
    	 return keyValue ? keyValue[2] : null;  
  } 
-jQuery.noConflict();
 
 function login(name){
-		console.log(name);
  		jQuery.post('/login', jQuery("#login_form").serialize(), function(data) {
- 			console.log("GOT HERE");
+ 			alert(status);
   			if (data['status'] == 'login_successful') {
   				alert(status);
   				/*login successful*/
@@ -27,7 +43,8 @@ function login(name){
   				//show logout stuff
   				jQuery('#toggleLogout').show();
   				setCookie('solvejs', name);
-  					jQuery('#login_name').html(getCookie('solvejs'));
+  				jQuery('#login_name').html(getCookie('solvejs'));
+ 				mySlide.slideOut();
  				console.log("success");
   			} else if (data['status'] == 'bad_email') {
  				console.log("bad email");

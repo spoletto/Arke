@@ -20,12 +20,7 @@
 
 	<!-- The CSS -->
   	<link type="text/css" href="static/style.css"     		 rel="stylesheet"  media="screen" />
-  	<link type="text/css" href="static/fx.slide.css"  		 rel="stylesheet"  media="screen" />
-  	<link type="text/css" href="static/css/basic.css" 		 rel="stylesheet"  media="screen" />	
-  	<link type="text/css" href="static/css/fileuploader.css" rel="stylesheet"  media="screen" />	
-	
-	
-	
+  	<link type="text/css" href="static/fx.slide.css"  		 rel="stylesheet"  media="screen" />	
 	<!-- START Fx.Slide -->
     <!-- Mootools - the core -->
 	<script type="text/javascript" src="static/js/mootools-1.2-core-yc.js"></script>
@@ -34,20 +29,12 @@
 	<script type="text/javascript" src="static/js/fx.slide.js"></script>
 	<!-- END Fx.Slide -->
 	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
-	<script type='text/javascript' src='static/js/jquery.simplemodal.js'></script> 
-	<script type='text/javascript' src='static/js/fileuploader.js'></script>
-	<script type="text/javascript" src="static/ajax.js"></script>
+	<script type="text/javascript" src="static/js/ajax.js"></script>
 	<script type="text/javascript" src="static/js/index.js"></script>
-	<script type="text/javascript" src="client/underscore.js"></script>
-	<script type="text/javascript" src="/nowjs/now.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
 	<script type="text/javascript" src="client/client.js" ></script>
 	
-	
-
-    
-
 </head>
-
 <body>
 	<!-- Login -->
 	<div id="login">
@@ -61,96 +48,36 @@
 				<input type="submit" name="submit" id="register_submit" value="" class="button_register" />
 				<input type="hidden" name="redirect_to" value=""/>
 			</form>
+			<div class="error"> Error: <span id="err"></span></div>
 			<div class="right" id="logintxt">Not a member? <a href="#" id="register_link">Register</a> | <a href="#">Lost your password?</a></div>
 			<div class="headcont" class="right" id="registertxt">Already a member? <a href="#" id="login_link">Login</a> </div>
-		</div>
+		</div> <!-- loginContent -->
 		<div class="loginClose"><a href="#" id="closeLogin">Close Panel</a></div>
 	</div> <!-- /login -->
-
     <div id="container">
 		<div id="top">
-		<!-- login -->
 			<ul class="login">
 		    	<li class="left">&nbsp;</li>
 		        <li>Hello <span id="login_name"></span>!</li>
 				<li>|</li>
 				<li><a id="toggleLogin" href="#">Log In</a><a id="toggleLogout" href="#">Log Out</a></li>
 			</ul> <!-- / login -->
-		</div> <!-- / top -->
-
-        <div class="clearfix"></div>
-	
+		</div> <!-- / top -->	
 		<fieldset id="content">
 		<div class="left_content">
 			<fieldset class="current_work">
-				This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us
-			</fieldset>
-			
+				This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us 
+			</fieldset>			
 			<fieldset class="about_us">
-				This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us
-			</fieldset>
-			
-			
-				<a class="upload_job" href="#" title="Upload Job" id="upload_job" class="link">Upload Job</a>
-				<div id="basic-modal-content">
-				<h3>Upload Job</h3>		
-				<form enctype="multipart/form-data" method="post" id="upload_form">
-					<p>
-						Input Data: <BR>
-						<input class="file" type="file" name="jsonFile" id="jsonFile" size="40">
-					</p>
-					<p>
-						Map/Reduce File: <BR>
-						<input class="file" type="file" name="jobFile" id="jobFile" size="40">
-					</p>
-					<div>
-						<input type="submit" value="Send">
-					</div>
-				</form>
-				    
-				</div>
-			</div>
-			
-			<div class="right_content">
+				This is content about us This is content about us This is content about us This is content about us This is content about us This is content about us 
+			</fieldset>						
+			<a class="upload_job" href="#" title="Upload Job" id="upload_job" class="link">Upload Job</a>
+		</div>			
+		<div class="right_content">
 			<fieldset class="arch">
 				<img src="static/images/tech_architecture_solveJS.png" alt="tech_arch" />
 			</fieldset>
-			</div>
-		</fieldset><!-- / content -->
-		
-		<fieldset id="register_div"> <!-- register content-->
-			<div id='content'>
-<!--			
-				<div id='basic-modal'>
-					<h3>Basic Modal Dialog</h3>
-					<p>A basic modal dialog with minimal styling and no additional options. There are a few CSS properties set internally by SimpleModal, however, SimpleModal relies mostly on style options and/or external CSS for the look and feel.</p>
-					<input type='button' name='basic' value='Demo' class='basic'/> or <a href='#' class='basic'>Demo</a>
-				</div>
--->				
-				<!-- modal content -->
-				<div id="basic-modal-content">
-					<h3>Basic Modal Dialog</h3>
-					<p>For this demo, SimpleModal is using this "hidden" data for its content. You can also populate the modal dialog with an AJAX response, standard HTML or DOM element(s).</p>
-					<p>Examples:</p>
-					<p><code>jQuery('#basicModalContent').modal(); // jQuery object - this demo</code></p>
-					<p><code>jQuery.modal(document.getElementById('basicModalContent')); // DOM</code></p>
-					<p><code>jQuery.modal('&lt;p&gt;&lt;b&gt;HTML&lt;/b&gt; elements&lt;/p&gt;'); // HTML</code></p>
-					<p><code>jQuery('&lt;div&gt;&lt;/div&gt;').load('page.html').modal(); // AJAX</code></p>
-				
-				</div>
-		
-				<!-- preload the images -->
-				
-				<div style='display:none'>
-					<img src='static/images/x.png' alt='' />
-				</div>
-			
-			</div>
-			
-		</fieldset>
-        <div class="clearfix"></div>
+		</div>
 	</div><!-- / container -->
-
 </body>
-
 </html>

@@ -1,0 +1,52 @@
+p.heading
+{
+	background-image: url(../images/bg_blue.png);
+	width: 350px;
+	-moz-box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1) inset;
+	-webkit-box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1) inset;
+	box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1) inset;
+	color: white;
+	display: block;
+	font-size: 250%;
+	height: 50px;
+	line-height: 50px;
+	margin: 10px auto;
+	position: relative;
+	text-align: center;
+}
+
+td{
+	margin-left: 25px;
+	margin-right: 15px;
+	background: -webkit-gradient(linear, left top, left bottom, from(#6b686f), to(#6b686f));
+}
+textarea.input_MR{
+	margin: 0 20px 0 20px;
+	width: 398px;
+	height: 400px;
+}
+
+fieldset.bottom_div{
+	background: -webkit-gradient(linear, left top, left bottom, from(#6b686f), to(#6b686f));
+}
+
+h3.major{
+	margin-left: 45%;
+	font-size: 160%;	
+}
+
+p.function_header{
+	margin-left: 20px;
+	color: white;
+	font-family: Courier;
+	font-size: 120%
+}
+
+textarea.blurb{
+	width: 846px;
+	height: 50px;
+}
+
+div.bottom_input{
+	margin-left: 10px;
+}

@@ -21,37 +21,36 @@
 
 	<!-- The CSS -->
   	<link type="text/css" href="static/style.css"     		 rel="stylesheet"  media="screen" />
+  	<link type="text/css" href="static/css/upload.css"  	 rel="stylesheet"  media="screen" />
+  	<link type="text/css" href="static/fx.slide.css"  	 rel="stylesheet"  media="screen" />
+  	<!-- The Javascript -->
 	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
   	<script type="text/javascript" src="static/js/upload.js"></script>
 	
-	
 </head>
-
 <body>
-    	<div id="top" class="upload_top">
-			<div class="upload_logout">
-				<ul class="login">
-			    	<li class="left">&nbsp;</li>
-			      <!--  <li>Hello <span id="login_name"></span>!</li> 
-					<li>|</li>-->
-					<li><a id="toggleLogout" href="#">Log Out</a></li>
-				</ul> <!-- / login -->
-			</div>
-			<BR>
-			<BR>
-    <div id="container">	
-
+	<div id="top" class="upload_top">
+		<div class="upload_logout">
+			<ul class="login">
+		    	<li class="left">&nbsp;</li>
+		      <!--  <li>Hello <span id="login_name"></span>!</li> 
+				<li>|</li>-->
+				<li><a id="toggleLogout" href="#">Log Out</a></li>
+			</ul> <!-- / login -->
+		</div>
+	</div> <!-- top -->
+	<BR>
+	<BR>
+	<div id="container">	
 		<fieldset id="content" class"upload_content">
 			<p class="heading">Upload Job</p>
 			<form action="/upload_job" enctype="multipart/form-data" method="post" id="upload_job_form">
 				<table >
 					<tr>   
-						<td> <h3 class ="major">Map</h3> <p class = "function_header">function map (key, value, emit) { </p><textarea name="map" class="map" id="map"></textarea> <p class = "function_header"> }</p> </td> 
-						<td> <h3 class ="major">Reduce</h3><p class = "function_header">function reduce (key, values, emit) {</p><textarea name="reduce" class="reduce"></textarea> <p class = "function_header"> }</p> </td>
-					</tr>
-					
+						<td> <h3 class ="major">Map</h3> <p class = "function_header">function map (key, value, emit) { </p><textarea name="map" class="input_MR"></textarea> <p class = "function_header"> }</p> </td> 
+						<td> <h3 class ="major">Reduce</h3><p class = "function_header">function reduce (key, values, emit) {</p><textarea name="reduce" class="input_MR"></textarea> <p class = "function_header"> }</p> </td>
+					</tr>	
 				</table>
-				
 				<fieldset class="bottom_div">	
 					<div class = "bottom_input">	
 						<h3>Input Data: </h3>
@@ -65,5 +64,4 @@
 		</fieldset><!-- / content -->
 	</div><!-- / container -->
 </body>
-
 </html>
