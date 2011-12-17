@@ -1,6 +1,7 @@
 var uuid = require('node-uuid');
 var _ = require('underscore');
 var assert = require('assert').ok;
+var bcrypt = require('bcrypt');
 var redis = require("redis"),
     client = redis.createClient();
 
@@ -21,6 +22,10 @@ function k_original_input(job_id) {
 
 function k_replication_factor(job_id) {
 	return job_id + "_replicationFactor";
+}
+
+function k_blurb(job_id) {
+	return job_id + "_blurb";
 }
 
 function k_work_queue(job_id) {
@@ -59,11 +64,52 @@ function k_runnable() {
 	return "runnableTasks";
 }
 
-// TODO: Cache job original input.
+function k_user_password(email_address) {
+	return email_address + "_password";
+}
+
+function k_user_jobs(email_address) {
+	return email_address + "_jobs";
+}
+
+// Callback: function(err).
+// err will be set to "EXISTS" if the email_address has already been taken.
+function new_user(email_address, password, callback) {
+	client.exists(k_user_password(email_address), function(err, exists) {
+		if (exists) { callback("EXISTS"); return; }
+		
+		// Hash the password using a salt.
+		bcrypt.gen_salt(10, function(err, salt) {
+		    bcrypt.encrypt(password, salt, function(err, hash) {
+				client.set(k_user_password(email_address), hash, callback);
+		    });
+		});
+	});
+}
+
+// Callback: function(err, pw_success).
+// err will be set to "NOT_EXISTS" if the email_address doesn't exist in the database.
+function user_password_correct(email_address, test_password, callback) {
+	client.exists(k_user_password(email_address), function(err, exists) {
+		if (!exists) { callback("NOT_EXISTS", null); return; }
+		client.get(k_user_password(email_address), function(err, password) {
+			bcrypt.compare(test_password, password, callback);
+		});
+	});
+}
+
+// Callback: function(err, jobs).
+// err will be set to "NOT_EXISTS" if the email_address doesn't exist in the database.
+function get_user_jobs(email_address, callback) {
+	client.exists(k_user_password(email_address), function(err, exists) {
+		if (!exists) { callback("NOT_EXISTS", null); return; }
+		client.smembers(k_user_jobs(email_address), callback);
+	});
+}
 
 // Input_data: Array [{ "k":k, "v":v }]
 // Callback: function(err, job_id)
-function new_job(input_data, replication_factor, map_code, reduce_code, callback) {	
+function new_job(email_address, input_data, replication_factor, map_code, reduce_code, blurb, callback) {	
 	// Need to initialize the map_input and work_queue.
 	var job_id = uuid.v4();
 	input_data.forEach(function(item) {
@@ -81,7 +127,9 @@ function new_job(input_data, replication_factor, map_code, reduce_code, callback
 	client.set(k_phase(job_id), "Map");
 	client.set(k_map_code(job_id), map_code);
 	client.set(k_reduce_code(job_id), reduce_code);
+	client.set(k_blurb(job_id), blurb);
 	client.sadd(k_runnable(), job_id);
+	client.sadd(k_user_jobs(email_address), job_id);
 	callback(null, job_id);
 }
 
@@ -125,7 +173,7 @@ function enqueue_work(job_id, chunk_id) {
 
 // TODO: Destroy job function.
 
-function enqueue_result(job_id, chunk_id, result, callback) {
+function enqueue_result(job_id, chunk_id, result) {
 	
 	var groupByComplete = function(groupByData) {
 		// Reset the 'in' count and 'out' count.
@@ -260,3 +308,6 @@ exports.dequeue_work = dequeue_work;
 exports.client = client;
 exports.fetch_job = fetch_job;
 exports.enqueue_result = enqueue_result;
+exports.new_user = new_user;
+exports.user_password_correct = user_password_correct;
+exports.get_user_jobs = get_user_jobs;
