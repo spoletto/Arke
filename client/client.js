@@ -14,16 +14,17 @@ jQuery(document).ready(function(){
     });
 });
 
+/* TODO hold on to jobid and taskid */
 function MessagingWorker(jobid){
     var that = this;
     var worker = new Worker('/client/worker.js');
-    var currentTaskId;
+    var currentTask;
 
     function startNewTask(){
         console.log('Client requesting task');
-        now.getTask(function (taskId, code, data) {
+        now.getTask(function (task, code, data) {
             console.log('Client received task', taskId);
-            currentTaskId = taskId;
+            currentTask = task;
             worker.postMessage({action: 'code', code: code});
             worker.postMessage({action: 'data', data: data});
         });
@@ -31,8 +32,8 @@ function MessagingWorker(jobid){
 
     worker.onmessage = function(event){
         if(event.data.action === 'completeTask'){
-            console.log('Client completed task', currentTaskId);
-            now.completeTask(currentTaskId, event.data.data, function() {});
+            console.log('Client completed task', currentTask);
+            now.completeTask(currentTask, event.data.data, function() {});
             startNewTask();
         } else if (event.data.action === 'log'){
             console.log('WORKER:', event.data.message);

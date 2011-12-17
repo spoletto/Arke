@@ -7,10 +7,8 @@ self.onmessage = function (event){
     } else if (event.data.action === 'data'){
         self.postMessage({action: 'log', message: 'Processing task... '});
         var output = [];
-        _.each(event.data.data, function(datum){
-            code(datum.k, datum.v, function(k, v){
-                output.push({'k': k, 'v': v});
-            });
+        code(event.data.data.k, event.data.data.v, function(k, v){
+            output.push({'k': k, 'v': v});
         });
 
         self.postMessage({action: 'completeTask', data: output}); 

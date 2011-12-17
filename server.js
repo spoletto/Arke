@@ -6,7 +6,7 @@
 
 var connect = require('connect'),
     express = require('express'),
-	db = require('./db_provider'),
+	db = require('./redis_db'),
 	config = require('./config'),
 	form = require('connect-form'),
 	fs = require('fs'),
@@ -226,36 +226,34 @@ everyone.now.logStuff = function(msg){
 var uuid = require('node-uuid');
 var _ = require('underscore');
 
-/* TODO wait for some amount of time if no tasks are available */
+var TASK_WAIT_TIME = 10000;
 /* TODO XXX reenqueue task if client disconnected while we fetched task */
 everyone.now.getTask = function(retVal){
 	console.log("Getting task.");
     var user = this.user;
-    db.Job.fetchTask(function(jobId, newTask, code){
+    db.dequeue_work(function(err, job_id, chunk_id, chunk, code){
+        if(err){
+            console.err("Error fetching task!", err);
+            return;
+        }
+        if(!(job_id && chunk_id)){
+            /* probably fetch again, maybe after a wait */
+            console.log("No task, waiting");
+            setTimeout(function(){ everyone.now.getTask(retVal); }, TASK_WAIT_TIME);
+            return;
+        }
 		console.log("Task fetched.");
-        if (!newTask) return;
-        var mapDatums = function(datum){
-            return {k: JSON.parse(datum.key), v: JSON.parse(datum.value)};
-        };
-        var data = _.map(newTask.data, mapDatums);
-        var taskId = newTask.taskId;
-        //console.log("Distributing task #", taskId, code, data);
-        user.tasks.push({'jobId': jobId, 'task': newTask});
-		console.log("Got task.");
-        retVal(taskId, code, data);
+        var task = {'job_id': job_id, 'chunk_id': chunk_id};
+        user.tasks.push(task);
+        retVal(task, code, chunk);
     });
 };
 
-everyone.now.completeTask = function(taskId, data, retVal){
+everyone.now.completeTask = function(task, data, retVal){
 	console.log("Completed task.");
-    this.user.tasks = _.reject(this.user.tasks, function(task) { return task.task.taskId == taskId; });
-    var encodedData = _.map(data, function(datum){
-        return {key: JSON.stringify(datum.k), value: JSON.stringify(datum.v)};
-    });
-    db.Job.commitResults(taskId, encodedData, function(jobId, status, percentage){
-        //everyone.now.updateProgress(jobId,status,percentage);
-		console.log("Successfully committed.");
-    });
+    var task = _.filter(this.user.tasks, function(t) { return t.job_id == task.job_id && t.chunk_id == task.chunk_id; });
+    this.user.tasks = _.reject(this.user.tasks, function(t) { return t.job_id == task.job_id && t.chunk_id == task.chunk_id; });
+    db.enqueue_result(task.job_id, task.chunk_id, data);
     retVal("OK");
 };
 
@@ -266,7 +264,7 @@ everyone.on('join', function(){
 everyone.on('leave', function(){
     console.log('Client disconnected');
     _.each(this.user.tasks, function(task){
-        console.log('Restoring task', task.task.taskId, 'of job', task.jobId);
-        db.Job.enqueueTask(task.jobId, task.task);
+        console.log('Restoring chunk', task.chunk_id, 'of job', task.job_id);
+        db.enqueue_work(task.job_id, task.chunk_id);
     });
 });
