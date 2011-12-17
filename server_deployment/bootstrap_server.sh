@@ -22,7 +22,7 @@ sudo make install
 
 # Install the node modules we'll need.
 cd ~
-npm install socket.io express connect connect-form bcrypt assert mongoose validator now underscore node-uuid
+npm install socket.io express connect formidable connect-form bcrypt assert validator now underscore node-uuid redis
 
 # Set up git remote master.
 mkdir ~/www
@@ -44,13 +44,9 @@ EOF
 
 chmod +x hooks/post-receive
 
-# Install MongoDB
-sudo apt-get install -y mongodb-server
-sudo mkdir -p /data/db
-sudo chown `id -u` /data/db
-
-# Start up the mongod.
-sudo start mongodb
+# Install Redis
+sudo apt-get install -y redis-server
+nohup redis-server > /dev/null 2>&1 &
 
 # Install Upstart
 sudo apt-get install -y upstart

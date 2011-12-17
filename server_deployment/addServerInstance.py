@@ -8,7 +8,7 @@ from fabric.operations import run, put, local
 import logging
 
 def launch_instance(ami='ami-bf62a9d6',
-                    instance_type='c1.xlarge',
+                    instance_type='t1.micro',
                     key_name='solvejs',
                     key_extension='.pem',
                     key_dir='~/.ssh',
