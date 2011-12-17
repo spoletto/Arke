@@ -174,20 +174,41 @@ function dequeue_work(callback) {
 				client.get(k_reduce_code(job_id), function(err, reduce_code) {
 					callback(err, job_id, chunk_id, chunk, reduce_code);
 				});
+			} else if (phase == "Finished") {
+				callback(null, null, null, null, null);
 			} else {
-				console.err("Incorrect phase.");
+				console.error("Incorrect phase. Phase = " + phase);
 				assert(false);
 			}
 		});
 	};
 	
 	fetch_job(function(err, job_id) {
+		if (!job_id) { callback(null, null, null, null, null); return; }
 		client.lpop(k_work_queue(job_id), function(err, chunk_id) {
+			if (!chunk_id) { callback(null, null, null, null, null); return; }
 			client.hget(k_input(job_id), chunk_id, function(err, chunk) {
+				assert(!!chunk);
 				getPhaseSpecificCode(job_id, chunk_id, JSON.parse(chunk));
 			});
 		});
 	});
+}
+
+// Callback: function(err, results).
+function results(job_id, callback) {
+	client.lrange(k_final_output(job_id), 0, -1, function(err, results) {
+		var returnedResults = [];
+		results.forEach(function(item) {
+			returnedResults.push(JSON.parse(item));
+		});
+		callback(err, returnedResults);
+	});
+}
+
+// Callback: function(err, phase).
+function phase(job_id, callback) {
+	client.get(k_phase(job_id), callback);
 }
 
 function enqueue_work(job_id, chunk_id) {
@@ -208,20 +229,23 @@ function enqueue_result(job_id, chunk_id, result) {
 		client.set(k_in_count(job_id), newInCount);
 		client.set(k_out_count(job_id), 0);
 		
-		// Set up the k_input, work_queue and phase, to reflect the transition to "Reduce" stage.
- 		for (var key in groupByData) {
-			console.log("key in groupByData " + key);
-			var chunk = {'k': key, 'v': groupByData[key]};
-			client.hset(k_input(job_id), key, JSON.stringify(chunk), function(err) {
-				client.get(k_replication_factor(job_id), function(err, replication_factor) {
-					for (var i = 0; i < replication_factor; i++) {
-						client.lpush(k_work_queue(job_id), key);
-					}
-				});
-			});
-
+		client.get(k_replication_factor(job_id), function(err, replication_factor) {
+			// Set up the k_input, work_queue and phase, to reflect the transition to "Reduce" stage.
+ 			for (var key in groupByData) {
+				console.log("key in groupByData " + key);
+				var chunk = {'k': key, 'v': groupByData[key]};
+				var f = function(k) {
+					client.hset(k_input(job_id), k, JSON.stringify(chunk), function(err) {
+						for (var i = 0; i < replication_factor; i++) {
+							console.log("Adding to work queue " + k + "for reduce stage.");
+							client.lpush(k_work_queue(job_id), k);
+						}
+					});
+				};
+				f(key);
+			}
 			client.set(k_phase(job_id), "Reduce");
-		}
+		});
 	};
 	
 	var mapComplete = function() {
@@ -255,6 +279,7 @@ function enqueue_result(job_id, chunk_id, result) {
 	
 	var jobFinished = function() {
 		// Cleanup.
+		console.log("JOB FINISHED. PERFORMING CLEANUP.")
 		client.srem(k_runnable(), job_id);
 		client.set(k_phase(job_id), "Finished");
 		client.del(k_in_count(job_id));
@@ -270,7 +295,11 @@ function enqueue_result(job_id, chunk_id, result) {
 			chunk_ids.forEach(function(chunk_id) {
 				client.lpop(k_output(job_id, chunk_id), function(err, response) {	
 					client.del(k_output(job_id, chunk_id));
-					client.lpush(k_final_output(job_id), response);
+					
+					var keyValueArray = JSON.parse(response);
+					keyValueArray.forEach(function(keyValuePair) {
+						client.lpush(k_final_output(job_id), JSON.stringify(keyValuePair));
+					});
 				});
 				
 				if (++outputProcessedCount == chunk_ids.length) {
@@ -289,7 +318,7 @@ function enqueue_result(job_id, chunk_id, result) {
 			} else if (phase == "Reduce") {
 				reduceComplete();
 			} else {
-				console.err("BAD PHASE");
+				console.error("BAD PHASE");
 				assert(false);
 			}
 		});
@@ -339,3 +368,5 @@ exports.enqueue_result = enqueue_result;
 exports.new_user = new_user;
 exports.user_password_correct = user_password_correct;
 exports.get_user_jobs = get_user_jobs;
+exports.results = results;
+exports.phase = phase;

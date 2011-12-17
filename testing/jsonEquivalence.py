@@ -146,8 +146,8 @@ print "Comparing " + json_one_filename + " and " + json_two_filename
 json_one_obj = json.load(open(json_one_filename))
 json_two_obj = json.load(open(json_two_filename))
 
-sorted_json_one_obj = sorted(json_one_obj, key=lambda k: k['v'])
-sorted_json_two_obj = sorted(json_two_obj, key=lambda k: k['v'])
+sorted_json_one_obj = sorted(json_one_obj, key=lambda k: k['k'])
+sorted_json_two_obj = sorted(json_two_obj, key=lambda k: k['k'])
 
 print "Equal? " + str(deep_eq(sorted_json_one_obj, sorted_json_two_obj))
 

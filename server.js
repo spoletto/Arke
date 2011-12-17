@@ -195,21 +195,15 @@ app.get('/status/:jobid', function(req, res) {
 });
 
 app.get('/results/:id', function(req,res){
-    db.Job.findOne({jobId: req.params.id}, function(err, job){
-        if(err){
-            console.error(err);
-        } else {
-            if(job.status == "Done"){
-                var data = [];
-                _.each(job.reduceOutput,
-                    function(task){
-                         _.each(task.data, function(pair){data.push({k: JSON.parse(pair.key), v: JSON.parse(pair.value)})});
-                    }
-                );
-                res.end(JSON.stringify(data));
-            }
-        }
-    });
+	var job_id = req.params.id;
+	db.phase(job_id, function(err, phase) {
+		if (phase != "Finished") {
+			res.json({ status : 'not_finished' });
+		}
+		db.results(job_id, function(err, results) {
+			res.json(results);
+		});
+	});
 });
 
 app.listen(80);
@@ -252,9 +246,14 @@ everyone.now.getTask = function(retVal){
 everyone.now.completeTask = function(task, data, retVal){
 	console.log("Completed task.");
     assert(!!task.job_id && !!task.chunk_id);
-    var task = _.filter(this.user.tasks, function(t) { return t.job_id == task.job_id && t.chunk_id == task.chunk_id; });
-    this.user.tasks = _.reject(this.user.tasks, function(t) { return t.job_id == task.job_id && t.chunk_id == task.chunk_id; });
-    db.enqueue_result(task.job_id, task.chunk_id, data);
+	console.log("User tasks before reject");
+	console.dir(this.user.tasks);
+    this.user.tasks = _.reject(this.user.tasks, function(t) {
+		return t.job_id == task.job_id && t.chunk_id == task.chunk_id;
+	});
+	console.log("User tasks after reject");
+	console.dir(this.user.tasks);    
+	db.enqueue_result(task.job_id, task.chunk_id, data);
     retVal("OK");
 };
 
