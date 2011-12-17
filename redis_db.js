@@ -347,6 +347,18 @@ function enqueue_result(job_id, chunk_id, result) {
 			});
 		});
 	};
+	
+	var conflictingResponses = function() {
+		console.log("Conflicting responses came back from clients.");
+		console.log("Conflicting response for chunk " + chunk_id);
+		client.del(k_output(job_id, chunk_id)); // Reset the output.
+		
+		client.get(k_replication_factor(job_id), function(err, replication_factor) {
+			for (var i = 0; i < replication_factor; i++) {
+				enqueue_work(job_id, chunk_id); // Re-add the chunks to the work queue.
+			}
+		});
+	};
 
 	var checkResponses = function() {
 		client.lrange(k_output(job_id, chunk_id), 0, -1, function(err, responses) {
@@ -354,8 +366,8 @@ function enqueue_result(job_id, chunk_id, result) {
 			var first_response = JSON.parse(responses[0]);
 			for (var i = 1; i < responses.length; i++) {
 				if (!_.isEqual(first_response, JSON.parse(responses[i]))) {
-					console.log("Conflicting responses came back from clients.");
-					assert(false); // TODO: Handle.
+					conflictingResponses();
+					return;
 				}
 			}
 			responsesValidated();
