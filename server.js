@@ -34,8 +34,21 @@ app.configure(function() {
 	app.use('/static', express.static(__dirname + '/static'));
 });
 
-app.get('/', function(req, res){
-	// Render the test_api screen for testing.
+app.get('/upload', function(req, res) {
+	auth_required(req, res, function() {
+		fs.readFile(__dirname + '/upload.html', function(error, content) {
+			if (error) {
+            	res.writeHead(500);
+            	res.end();
+        	} else {
+            	res.writeHead(200, { 'Content-Type': 'text/html' });
+            	res.end(content, 'utf-8');
+        	}
+    	});
+	});
+});
+
+app.get('/', function(req, res) {
 	fs.readFile(__dirname + '/index.html', function(error, content) {
 		if (error) {
             res.writeHead(500);
@@ -79,34 +92,21 @@ app.post('/login', function(req, res) {
 	var email_address = req.body.email_address;
 	var password = req.body.password;
 	
-	db.User.findOne({
-		email_address:email_address
-	}, function(err, user) {
-		console.log("GOT HERE");
-		if (err) {
-			res.json({ status: 'error' }, 500);
-			console.log("error");
-			return;
-		}
-		if (!user) {
+	db.user_password_correct(email_address, password, function(err, pw_success) {
+		if (err == "NOT_EXISTS") {
 			res.json({ status: 'bad_email' });
-			console.log("bad email");
+			return;
+		} else if (err) {
+			res.json({ status: 'error' }, 500);
+			return;
+		} else if (pw_success) {
+			req.session.email_address = email_address;
+			res.json({ status: 'login_successful' });
+			return;
+		} else {
+			res.json({ status: 'bad_password' });
 			return;
 		}
-		
-		// Verify provided password is correct.
-		bcrypt.compare(password, user.password, function(err, pw_success) {
-			if (pw_success) {
-				req.session.email_address = email_address;
-				res.json({ status: 'login_successful' });
-				console.log("success");
-				return;
-			} else {
-				res.json({ status: 'bad_password' });
-				console.log("bad pass");
-				return;
-			}
-		});
 	});
 });
 
@@ -123,8 +123,8 @@ app.post('/register', function(req, res) {
 	var email_address = req.body.email_address;
 	var password = req.body.password;
 	
-	db.add_new_user(email_address, password, function(err) {
-		if (err && err.code == DUPLICATE_KEY_ERROR_CODE) {
+	db.new_user(email_address, password, function(err) {
+		if (err == "EXISTS") {
 			res.json({ status: 'email_taken' });
 			return;
 		} else if (err) {
@@ -191,6 +191,14 @@ app.post('/upload_job', function(req, res, next) {
     });
 });
 
+/* Job status endpoint. Useful for checking the completion progress of a task.
+ * RESPONSE: {
+ *    phase: ["Finished", "Map", "Reduce"]
+ *    blurb: "Job description"
+ *    total_task_count: "5089"     // Only present if phase is not "Finished"
+ *    completed_task_count: "1009" // Only present if phase is not "Finished"
+ * }
+ */
 app.get('/status/:id', function(req, res) {	
 	var job_id = req.params.id;
 	
@@ -215,6 +223,16 @@ app.get('/status/:id', function(req, res) {
 	});
 });
 
+/* Job results endpoint.
+ *
+ * If the job is still currently processing:
+ * RESPONSE: {
+ *    status: "not_finished"
+ * }
+ * 
+ * If the job is indeed finished:
+ * RESPONSE: JSON output data.
+ */
 app.get('/results/:id', function(req,res){
 	var job_id = req.params.id;
 	db.phase(job_id, function(err, phase) {
@@ -227,7 +245,7 @@ app.get('/results/:id', function(req,res){
 	});
 });
 
-app.listen(80);
+app.listen(8000);
 
 // Websocket goodness...
 
@@ -258,6 +276,7 @@ everyone.now.getTask = function(retVal){
             return;
         }
 		console.log("Task fetched.");
+		// IS SOCKET DISCONNECTED?
         var task = {'job_id': job_id, 'chunk_id': chunk_id};
         user.tasks.push(task);
         retVal(task, code, chunk);
