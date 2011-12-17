@@ -83,18 +83,29 @@ function new_user(email_address, password, callback) {
 	});
 }
 
-// Callback: function(err, password).
+// Callback: function(err, pw_success).
 // err will be set to "NOT_EXISTS" if the email_address doesn't exist in the database.
-function get_user(email_address, callback) {
+function user_password_correct(email_address, test_password, callback) {
 	client.exists(k_user_password(email_address), function(err, exists) {
 		if (!exists) { callback("NOT_EXISTS", null); return; }
-		client.get(k_user_password(email_address), callback);
+		client.get(k_user_password(email_address), function(err, password) {
+			bcrypt.compare(test_password, password, callback);
+		});
+	});
+}
+
+// Callback: function(err, jobs).
+// err will be set to "NOT_EXISTS" if the email_address doesn't exist in the database.
+function get_user_jobs(email_address, callback) {
+	client.exists(k_user_password(email_address), function(err, exists) {
+		if (!exists) { callback("NOT_EXISTS", null); return; }
+		client.smembers(k_user_jobs(email_address), callback);
 	});
 }
 
 // Input_data: Array [{ "k":k, "v":v }]
 // Callback: function(err, job_id)
-function new_job(input_data, replication_factor, map_code, reduce_code, callback) {	
+function new_job(email_address, input_data, replication_factor, map_code, reduce_code, callback) {	
 	// Need to initialize the map_input and work_queue.
 	var job_id = uuid.v4();
 	input_data.forEach(function(item) {
@@ -113,6 +124,7 @@ function new_job(input_data, replication_factor, map_code, reduce_code, callback
 	client.set(k_map_code(job_id), map_code);
 	client.set(k_reduce_code(job_id), reduce_code);
 	client.sadd(k_runnable(), job_id);
+	client.sadd(k_user_jobs(email_address), job_id);
 	callback(null, job_id);
 }
 
@@ -292,4 +304,5 @@ exports.client = client;
 exports.fetch_job = fetch_job;
 exports.enqueue_result = enqueue_result;
 exports.new_user = new_user;
-exports.get_user = get_user;
+exports.user_password_correct = user_password_correct;
+exports.get_user_jobs = get_user_jobs;
