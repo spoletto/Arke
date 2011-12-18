@@ -290,7 +290,7 @@ everyone.now.getTask = function(retVal){
                             /* TODO store data */
                             console.log("Got log");
                             console.dir(data.length);
-							fs.writeFileSync('TEST_LOG', JSON.stringify(data));
+							fs.writeFileSync('LOG_' + user.uid, JSON.stringify(data));
                         });
                     }
                 });
@@ -330,6 +330,7 @@ everyone.now.completeTask = function(task, data, retVal){
 everyone.on('join', function(){
     this.user.tasks = [];
 	this.user.connected = true;
+	this.user.uid = uuid.v4();
 });
 
 everyone.on('leave', function(){
