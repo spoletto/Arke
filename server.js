@@ -263,7 +263,7 @@ var uuid = require('node-uuid');
 var _ = require('underscore');
 
 var TASK_WAIT_TIME = 10000;
-var LOG = false;
+var LOG = true;
 /* TODO XXX reenqueue task if client disconnected while we fetched task */
 everyone.now.getTask = function(retVal){
     var user = this.user;
