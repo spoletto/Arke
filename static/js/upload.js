@@ -1,4 +1,15 @@
-jQuery(document).ready(function($) {
+function setCookie(key, value) {  
+   	var expires = new Date();  
+    expires.setTime(expires.getTime() + 31536000000); //1 year  
+    document.cookie = key + '=' + value + ';expires=' + expires.toUTCString() + 'path=localhost:8080/';  
+}  
+  
+function getCookie(key) {  
+  	 var keyValue = document.cookie.match('(^|;) ?' + key + '=([^;]*)(;|$)');  
+   	 return keyValue ? keyValue[2] : null;  
+ }
+ 
+ jQuery(document).ready(function($) {
 	$('#upload_map_reduce').click(function() {
 	  	var map_text 		= $('textarea#map').val();
 	    var reduce_text 	= $('textarea#reduce').val();
@@ -24,8 +35,13 @@ jQuery(document).ready(function($) {
 	});
 	
 	$('#toggleLogout').click(function(){
+		//setCookie('solvejs', "");
+		//console.log(getCookie('solvejs'))
+		//jQuery('#login_name').html(getCookie('solvejs'));
 		window.location.href = "/";	
 	});
+	console.log(getCookie('solvejs'))
+	jQuery('#login_name').html(getCookie('solvejs'));
 });
 
 

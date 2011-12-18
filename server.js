@@ -3,7 +3,7 @@
  *
  * Date: 12-01-2011
  */
-
+var REPLICATION_FACTOR = 1;
 var connect = require('connect'),
     express = require('express'),
     http = require('http'),
@@ -154,6 +154,73 @@ app.post('/register', function(req, res) {
  * }
  */
 app.post('/upload_job', function(req, res, next) {
+var form = new formidable.IncomingForm();
+        var files = {};
+        var fields = {};
+        var path;
+
+    form.uploadDir = "";
+
+    form
+		  .on('field', function(field, value) {
+		    	console.log(field, value);
+		    	fields[field] = value;
+		  })
+		  .on('file', function(field, file) {
+		    	console.log(field, file);
+		    	files[field] = file;
+		    	path = file.path;
+		  })
+		  .on('end', function() {
+		    	console.log('-> upload done');
+			    if(!fields.mapper){
+			    	console.log("No mapper");
+			    	res.json({ status: 'missing_mapper' });
+			    	res.redirect('/upload');
+					return;
+			    }else if(!fields.reducer){
+			    	console.log("No reducer");
+			    	res.json({ status: 'missing_reducer' });
+			    	res.redirect('/upload');
+					return;
+			    }else if(!fields.blurb){
+			    	console.log("no blurb");
+			    	res.json({ status: 'missing_blurb' });
+			    	res.redirect('/upload');
+					return;
+			    }else{
+			        var mapper = ("function(key,value,emit){" + fields.mapper + "}");
+			    	var reducer = ("function(key,values,emit){" + fields.reducer + "}");
+			       
+					fs.readFile(path, 'utf8', function(err, data){
+						console.log(data);
+				    	if(err) { 
+				    		console.log("ERROR: reading file" + path);
+				    		res.json({ status: 'invalid_file' });
+				    		console.log(data);
+				    		throw err;
+				    		res.redirect('/upload');
+				    		return;
+				    	}
+				    	try {
+				    		var inputJSON = JSON.parse(data);
+				    	} catch(e) {
+					    	res.json({ status: 'invalid_file' });
+							console.log("ERROR READING INPUT JSON:: " + e);
+							res.redirect('/upload');
+							return;
+						}
+						console.log(inputJSON.length);
+			    		db.new_job(req.session.email_address, inputJSON, REPLICATION_FACTOR, mapper, reducer, fields.blurb, function(err, job_id) {
+							console.log("Submitted job with ID = " + job_id);
+						});
+						res.redirect('/');
+			    	});
+				}
+		  });
+    form.parse(req);
+    });
+/*
     auth_required(req, res, function() {
        req.form.complete(function(err, fields, files){
          if (err) {
@@ -192,8 +259,9 @@ app.post('/upload_job', function(req, res, next) {
          res.redirect('/');
        });
     });
+    
 });
-
+*/
 /* Job status endpoint. Useful for checking the completion progress of a task.
  * RESPONSE: {
  *    phase: ["Finished", "Map", "Reduce"]
