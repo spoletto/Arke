@@ -269,7 +269,7 @@ everyone.now.getTask = function(retVal){
 	console.log("Getting task.");
     var user = this.user;
     var now = this.now;
-    db.dequeue_work(function(err, job_id, chunk_id, chunk, code){
+    db.dequeue_work(function(err, job_id, chunk_id, chunk, phase, code){
         if(err){
             console.err("Error fetching task!", err);
             return;
@@ -299,7 +299,7 @@ everyone.now.getTask = function(retVal){
             return;
         }
 		console.log("Task fetched.");
-		var task = {'job_id': job_id, 'chunk_id': chunk_id};
+		var task = {'job_id': job_id, 'chunk_id': chunk_id, 'phase': phase};
 		
 		if (!user.connected) {
 			console.log("User disconnected!");
