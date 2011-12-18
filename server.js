@@ -14,7 +14,8 @@ var connect = require('connect'),
 	form = require('connect-form'),
 	fs = require('fs'),
 	bcrypt = require('bcrypt'),
-    assert = require('assert').ok;
+    assert = require('assert').ok,
+    logging = require('./logging');
 
 var DUPLICATE_KEY_ERROR_CODE = 11000;
 var JOB_UPLOAD_DIRECTORY = __dirname + "/jobs/";
@@ -264,42 +265,37 @@ var _ = require('underscore');
 
 var TASK_WAIT_TIME = 10000;
 var LOG = true;
+var t_task_total = [];
+var t_task_fetch = [];
+var t_task_store = [];
 /* TODO XXX reenqueue task if client disconnected while we fetched task */
 everyone.now.getTask = function(retVal){
     var user = this.user;
     var now = this.now;
+    var log_id = logging.fetchingTask();
+        
     db.dequeue_work(function(err, job_id, chunk_id, chunk, phase, code){
         if(err){
             console.err("Error fetching task!", err);
             return;
         }
         if(!(job_id && chunk_id)){
-            var wait = function(){
-                console.log("No task, waiting");
-                /* XXX these waits are blowing up, why */
-                setTimeout(function(){ now.getTask(retVal); }, TASK_WAIT_TIME);
-            };
-            if(LOG){
-                db.jobs_available(function(err, available){
-                    assert(!err);
-                    if(available){
-                        wait();
-                    } else {
-                        console.log("Collecting log");
-                        now.collectLog(function(data){
-                            /* TODO store data */
-                            console.log("Got log");
-                            console.dir(data.length);
-							fs.writeFileSync('LOG_' + user.uid, JSON.stringify(data));
-                        });
-                    }
-                });
-            } else {
-                wait();
-            }
+            db.jobs_available(function(err, available){
+                assert(!err);
+                if(available){
+                    console.log("No task, waiting");
+                    setTimeout(function(){
+                        if(now && 'getTask' in now)
+                            now.getTask(retVal);
+                    }, TASK_WAIT_TIME);
+                } else {
+                    logging.writeTaskLog();
+                }
+            });
             return;
         }
-		var task = {'job_id': job_id, 'chunk_id': chunk_id, 'phase': phase};
+        logging.fetchedTask(log_id, phase);
+		var task = {'job_id': job_id, 'chunk_id': chunk_id, 'phase': phase, 'log_id': log_id};
 		
 		if (!user.connected) {
 			console.log("User disconnected!");
@@ -315,8 +311,12 @@ everyone.now.getTask = function(retVal){
 everyone.now.completeTask = function(task, data, retVal){
     assert(!!task.job_id && !!task.chunk_id);
     assert(this.user.task.job_id == task.job_id && this.user.task.chunk_id == task.chunk_id);
+    var log_id = task.log_id;
+    logging.storingTask(log_id);
     this.user.task = null;
-	db.enqueue_result(task.job_id, task.chunk_id, data);
+	db.enqueue_result(task.job_id, task.chunk_id, data, function(){
+        logging.storedTask(log_id);
+    });
     retVal("OK");
 };
 
