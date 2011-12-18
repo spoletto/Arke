@@ -248,7 +248,7 @@ app.get('/results/:id', function(req,res){
 	});
 });
 
-app.listen(80);
+app.listen(8080);
 
 // Websocket goodness...
 
@@ -290,6 +290,7 @@ everyone.now.getTask = function(retVal){
                             /* TODO store data */
                             console.log("Got log");
                             console.dir(data.length);
+							fs.writeFileSync('TEST_LOG', JSON.stringify(data));
                         });
                     }
                 });
