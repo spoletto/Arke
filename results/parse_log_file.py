@@ -13,47 +13,61 @@ from __future__ import division
 import json
 import sys
 
-if len(sys.argv) < 2:
+if len(sys.argv) < 3:
         print ""
-        print "Usage : %s <log_file>" % sys.argv[0]
+        print "Usage : %s <job_log> <task_log>" % sys.argv[0]
         print ""
         sys.exit()
 
-log_filename = sys.argv[1]
+job_log_filename = sys.argv[1]
+task_log_filename = sys.argv[2]
 
-print "Analyzing " + log_filename + "..."
+job_data = json.load(open(job_log_filename))
+task_data = json.load(open(task_log_filename))
+
+tasks = task_data.values()
+tasks = filter(lambda t: 'end_store' in t, tasks)
+tasks.sort(key=lambda t: t['end_fetch'])
+
+job_data['map_start'] = tasks[0]['end_fetch']
+map_time = job_data['map_complete'] - job_data['map_start']
+shuffle_time = job_data['reduce_start'] - job_data['map_complete']
+reduce_time = job_data['reduce_complete'] - job_data['reduce_start']
+finalize_time = job_data['job_complete'] - job_data['reduce_complete']
+total_time = job_data['job_complete'] - job_data['map_start']
+
+total_time = float(total_time)
+
+print "Total: \t%d"                % (total_time)
+print ""
+print "Map: \t\t%d\t%.2f%%"        % (map_time, map_time/total_time)
+print "Shuffle: \t%d\t%.2f%%"      % (shuffle_time, shuffle_time/total_time)
+print "Reduce: \t%d\t%.2f%%"       % (reduce_time, reduce_time/total_time)
+print "Finalize: \t%d\t%.2f%%"     % (finalize_time, finalize_time/total_time)
 print ""
 
-log_data = json.load(open(log_filename))
+# Oh no, we iterate over the data many times! Sue me.
+def stats(tasks):
+    fetch   = map(lambda t: t['end_fetch'] - t['start_fetch'], tasks)
+    work    = map(lambda t: t['client_end'] - t['client_start'], tasks)
+    store   = map(lambda t: t['end_store'] - t['start_store'], tasks)
+    total   = map(lambda t: t['end_store'] - t['start_fetch'], tasks)
 
-time_fetching = 0
-time_computing_map = 0
-time_computing_reduce = 0
-last_event_time = 0
+    def mean(x): return sum(x)/len(x)
+    net_mean = mean(total)-(mean(fetch)+mean(work)+mean(store))
 
-for log_entry in log_data:
-	if log_entry["type"] == "FETCH":
-		pass
-	elif log_entry["type"] == "START_Map":
-		time_fetching += (log_entry['time'] - last_event_time)
-	elif log_entry["type"] == "START_Reduce":
-		time_fetching += (log_entry['time'] - last_event_time)
-	elif log_entry["type"] == "COMPLETE_Map":
-		time_computing_map += (log_entry['time'] - last_event_time)
-	elif log_entry["type"] == "COMPLETE_Reduce":
-		time_computing_reduce += (log_entry['time'] - last_event_time)
-	last_event_time = log_entry['time']
+    print "Total:\t%f" % mean(total)
+    print "#:\t%d" % len(tasks)
+    print ""
+    print "fetch:\t%f\t%.2f" % (mean(fetch), mean(fetch)/mean(total))
+    print "work:\t%f\t%.2f" % (mean(work), mean(work)/mean(total))
+    print "store:\t%f\t%.2f" % (mean(store), mean(store)/mean(total))
+    print "net:\t%f\t%.2f" % (net_mean, net_mean/mean(total))
+    print ""
 
-time_computing = time_computing_map + time_computing_reduce
-total_time = time_computing + time_fetching
-
-print "Total time = " + str(total_time/1000) + " seconds."
-print "Spent " + str(time_fetching/1000) + " seconds fetching data."
-print "Spent " + str(time_computing_map/1000) + " seconds computing MAP."
-print "Spent " + str(time_computing_reduce/1000) + " seconds computing REDUCE."
-print ""
-
-print "Percentage of time spent computing = " + str(time_computing/total_time * 100)
-print "Percentage of computation time in MAP = " + str(time_computing_map/time_computing * 100)
-print "Percentage of computation time in REDUCE = " + str(time_computing_reduce/time_computing * 100)
-print ""
+print "All tasks"
+stats(tasks)
+print "Map tasks"
+stats(filter(lambda t: t['phase'] == 'Map', tasks))
+print "Reduce tasks"
+stats(filter(lambda t: t['phase'] == 'Reduce', tasks))
