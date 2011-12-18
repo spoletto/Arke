@@ -35,6 +35,10 @@ a img {
 
 
 /***** Main Layout ****/
+
+div#error{
+	color: red;
+}
 #container {
   	width: 100%;
   	height: 100%;
