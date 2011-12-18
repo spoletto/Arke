@@ -277,7 +277,7 @@ everyone.now.getTask = function(retVal){
             var wait = function(){
                 console.log("No task, waiting");
                 /* XXX these waits are blowing up, why */
-                setTimeout(function(){ everyone.now.getTask(retVal); }, TASK_WAIT_TIME);
+                setTimeout(function(){ now.getTask(retVal); }, TASK_WAIT_TIME);
             };
             if(LOG){
                 db.jobs_available(function(err, available){
