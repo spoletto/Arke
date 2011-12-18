@@ -31,10 +31,11 @@ all_instances = [
     'ec2-184-73-108-126.compute-1.amazonaws.com',
     'ec2-184-72-191-50.compute-1.amazonaws.com',
 	'ec2-50-16-112-185.compute-1.amazonaws.com',
-	'ec2-184-73-73-171.compute-1.amazonaws.com'
+	'ec2-184-73-73-171.compute-1.amazonaws.com',
+	'ec2-50-17-66-173.compute-1.amazonaws.com'
 ]
 
-INSTANCE_COUNT = 10
+INSTANCE_COUNT = 1
 
 env.user = "ubuntu"
 env.key_filename = "/Users/spoletto/.ssh/solvejs_client.pem"
