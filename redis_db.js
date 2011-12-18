@@ -4,6 +4,7 @@ var assert = require('assert').ok;
 var bcrypt = require('bcrypt');
 var redis = require("redis"),
     client = redis.createClient();
+var logging = require("./logging");
 
 // TODO: Add data validation (i.e. make sure the input)
 // matches specification for each of the API functions.
@@ -233,7 +234,7 @@ function enqueue_work(job_id, chunk_id) {
 
 // TODO: Destroy job function.
 
-function enqueue_result(job_id, chunk_id, result) {
+function enqueue_result(job_id, chunk_id, result, server_callback) {
 	assert(!!job_id);
 	assert(!!chunk_id);
 	assert(!!result);
@@ -258,11 +259,13 @@ function enqueue_result(job_id, chunk_id, result) {
 				};
 				f(key);
 			}
+            logging.reduceStart();
 			client.set(k_phase(job_id), "Reduce");
 		});
 	};
 	
 	var mapComplete = function() {
+        logging.mapComplete();
 		client.hkeys(k_input(job_id), function(err, chunk_ids) {
 			client.del(k_input(job_id)); // Reset the input.
 			
@@ -293,6 +296,7 @@ function enqueue_result(job_id, chunk_id, result) {
 	
 	var jobFinished = function() {
 		// Cleanup.
+        logging.jobComplete();
 		console.log("JOB FINISHED. PERFORMING CLEANUP.")
 		client.srem(k_runnable(), job_id);
 		client.set(k_phase(job_id), "Finished");
@@ -304,6 +308,7 @@ function enqueue_result(job_id, chunk_id, result) {
 	}
 	
 	var reduceComplete = function() {
+        logging.reduceComplete();
 		client.hkeys(k_input(job_id), function(err, chunk_ids) {
 			var outputProcessedCount = 0;
 			chunk_ids.forEach(function(chunk_id) {
@@ -376,6 +381,7 @@ function enqueue_result(job_id, chunk_id, result) {
 	
 	client.get(k_replication_factor(job_id), function(err, replication_factor) {
 		client.lpush(k_output(job_id, chunk_id), JSON.stringify(result), function(err, len) {
+            server_callback();
 			if (len == replication_factor) {
 				// We can now ensure all the responses received for this chunk are identical.
 				checkResponses();
