@@ -9,7 +9,7 @@
  * Date: 12-07-2011
  */
 
-var db = require('../redis_db'),
+var db = require('../../redis_db'),
     fs = require('fs'),
     _ = require('underscore');
 
