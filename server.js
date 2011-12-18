@@ -263,7 +263,7 @@ everyone.now.logStuff = function(msg){
 var uuid = require('node-uuid');
 var _ = require('underscore');
 
-var TASK_WAIT_TIME = 10000;
+var TASK_WAIT_TIME = 500;
 var LOG = true;
 var t_task_total = [];
 var t_task_fetch = [];
