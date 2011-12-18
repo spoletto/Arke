@@ -35,6 +35,7 @@ exports.storedTask = function(id){
 
 exports.writeTaskLog = function(){
     if(!written){
+        console.log("Writing out task log");
         fs.writeFileSync('TASK_LOG', JSON.stringify(task_log));
         written = true;
     }
@@ -54,5 +55,6 @@ exports.reduceComplete = function(){
 
 exports.jobComplete = function(){
     job_log.job_complete = new Date().getTime();
+    console.log("Writing out job log");
     fs.writeFileSync('JOB_LOG', JSON.stringify(job_log));
 };

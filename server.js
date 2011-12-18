@@ -268,7 +268,6 @@ var LOG = true;
 var t_task_total = [];
 var t_task_fetch = [];
 var t_task_store = [];
-/* TODO XXX reenqueue task if client disconnected while we fetched task */
 everyone.now.getTask = function(retVal){
     var user = this.user;
     var now = this.now;
@@ -285,8 +284,9 @@ everyone.now.getTask = function(retVal){
                 if(available){
                     console.log("No task, waiting");
                     setTimeout(function(){
-                        if(now && 'getTask' in now)
-                            now.getTask(retVal);
+                        /* XXX there's a non-critical error if client has disconnect
+                         * when we try to call this */
+                        now.getTask(retVal);
                     }, TASK_WAIT_TIME);
                 } else {
                     logging.writeTaskLog();
@@ -311,11 +311,10 @@ everyone.now.getTask = function(retVal){
 everyone.now.completeTask = function(task, data, retVal){
     assert(!!task.job_id && !!task.chunk_id);
     assert(this.user.task.job_id == task.job_id && this.user.task.chunk_id == task.chunk_id);
-    var log_id = task.log_id;
-    logging.storingTask(log_id);
+    logging.storingTask(task.log_id, task.client_log);
     this.user.task = null;
 	db.enqueue_result(task.job_id, task.chunk_id, data, function(){
-        logging.storedTask(log_id);
+        logging.storedTask(task.log_id);
     });
     retVal("OK");
 };
