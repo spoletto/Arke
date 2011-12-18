@@ -263,10 +263,9 @@ var uuid = require('node-uuid');
 var _ = require('underscore');
 
 var TASK_WAIT_TIME = 10000;
-var LOG = true;
+var LOG = false;
 /* TODO XXX reenqueue task if client disconnected while we fetched task */
 everyone.now.getTask = function(retVal){
-	console.log("Getting task.");
     var user = this.user;
     var now = this.now;
     db.dequeue_work(function(err, job_id, chunk_id, chunk, code){
@@ -277,6 +276,7 @@ everyone.now.getTask = function(retVal){
         if(!(job_id && chunk_id)){
             var wait = function(){
                 console.log("No task, waiting");
+                /* XXX these waits are blowing up, why */
                 setTimeout(function(){ everyone.now.getTask(retVal); }, TASK_WAIT_TIME);
             };
             if(LOG){
@@ -298,7 +298,6 @@ everyone.now.getTask = function(retVal){
             }
             return;
         }
-		console.log("Task fetched.");
 		var task = {'job_id': job_id, 'chunk_id': chunk_id};
 		
 		if (!user.connected) {
@@ -306,36 +305,30 @@ everyone.now.getTask = function(retVal){
 			console.log('Restoring chunk', task.chunk_id, 'of job', task.job_id);
 	        db.enqueue_work(task.job_id, task.chunk_id);
 		} else {
-			user.tasks.push(task);
+			user.task = task;
 	        retVal(task, code, chunk);
 		}
     });
 };
 
 everyone.now.completeTask = function(task, data, retVal){
-	console.log("Completed task.");
     assert(!!task.job_id && !!task.chunk_id);
-	console.log("User tasks before reject");
-	console.dir(this.user.tasks);
-    this.user.tasks = _.reject(this.user.tasks, function(t) {
-		return t.job_id == task.job_id && t.chunk_id == task.chunk_id;
-	});
-	console.log("User tasks after reject");
-	console.dir(this.user.tasks);
+    assert(this.user.task.job_id == task.job_id && this.user.task.chunk_id == task.chunk_id);
+    this.user.task = null;
 	db.enqueue_result(task.job_id, task.chunk_id, data);
     retVal("OK");
 };
 
 everyone.on('join', function(){
-    this.user.tasks = [];
+    this.user.task = null;
 	this.user.connected = true;
 });
 
 everyone.on('leave', function(){
     console.log('Client disconnected');
 	this.user.connected = false;
-    _.each(this.user.tasks, function(task){
-        console.log('Restoring chunk', task.chunk_id, 'of job', task.job_id);
-        db.enqueue_work(task.job_id, task.chunk_id);
-    });
+    if(this.user.task){
+        console.log('Restoring chunk', this.user.task.chunk_id, 'of job', this.user.task.job_id);
+        db.enqueue_work(this.user.task.job_id, this.user.task.chunk_id);
+    }
 });
