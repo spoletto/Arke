@@ -24,5 +24,10 @@ with open(fname) as f:
                 jsonDict = { "k":"key", "v":" ".join(currChunk) }
                 jsonArray.append(jsonDict)
                 currChunk = []
+    
+    # Handle the last chunk, which wasn't big enough to reach CHUNK_SIZE words.
+    if len(currChunk) > 0:
+        jsonDict = { "k":"key", "v":" ".join(currChunk) }
+        jsonArray.append(jsonDict)
                 
     print json.dumps(jsonArray)
