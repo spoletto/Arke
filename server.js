@@ -263,19 +263,39 @@ var uuid = require('node-uuid');
 var _ = require('underscore');
 
 var TASK_WAIT_TIME = 10000;
+var LOG = true;
 /* TODO XXX reenqueue task if client disconnected while we fetched task */
 everyone.now.getTask = function(retVal){
 	console.log("Getting task.");
     var user = this.user;
+    var now = this.now;
     db.dequeue_work(function(err, job_id, chunk_id, chunk, code){
         if(err){
             console.err("Error fetching task!", err);
             return;
         }
         if(!(job_id && chunk_id)){
-            /* probably fetch again, maybe after a wait */
-            console.log("No task, waiting");
-            setTimeout(function(){ everyone.now.getTask(retVal); }, TASK_WAIT_TIME);
+            var wait = function(){
+                console.log("No task, waiting");
+                setTimeout(function(){ everyone.now.getTask(retVal); }, TASK_WAIT_TIME);
+            };
+            if(LOG){
+                db.jobs_available(function(err, available){
+                    assert(!err);
+                    if(available){
+                        wait();
+                    } else {
+                        console.log("Collecting log");
+                        now.collectLog(function(data){
+                            /* TODO store data */
+                            console.log("Got log");
+                            console.dir(data.length);
+                        });
+                    }
+                });
+            } else {
+                wait();
+            }
             return;
         }
 		console.log("Task fetched.");
