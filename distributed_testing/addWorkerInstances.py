@@ -134,12 +134,9 @@ def launch_instance(ami='ami-fd589594',
     # The instance has been launched but it's not yet up and
     # running.  Let's wait for it's state to change to 'running'.
 
-    print 'waiting for instance'
     while instance.state != 'running':
-        print '.'
         time.sleep(5)
         instance.update()
-    print 'done'
 
     # Let's tag the instance with the specified label so we can
     # identify it later.
@@ -158,38 +155,45 @@ def launch_instance(ami='ami-fd589594',
     print 'launched instance with public DNS ' + str(instance.public_dns_name)
     return (instance, cmd)
 
-def bootstrap_instance(server_address, chrome_copies=1):
-    (instance, cmd) = launch_instance()
-    print "cmd is " + str(cmd)
+def bootstrap_instances(instance_count=1):
+    for i in range(0, int(instance_count)):
+        (instance, cmd) = launch_instance()
     
-    # Install Google Chrome
-    cmd.run("echo \"deb http://dl.google.com/linux/deb/ stable non-free main\" | sudo tee -a /etc/apt/sources.list")
-    cmd.run("wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - ")
-    cmd.run("sudo apt-get update")
-    cmd.run("sudo apt-get install -y google-chrome-stable")
+        # Install Google Chrome
+        cmd.run("echo \"deb http://dl.google.com/linux/deb/ stable non-free main\" | sudo tee -a /etc/apt/sources.list")
+        cmd.run("wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add - ")
+        cmd.run("sudo apt-get update")
+        cmd.run("sudo apt-get install -y google-chrome-stable")
     
-    # Install the xvfb X11 server
-    cmd.run("sudo apt-get install -y xvfb")
+        # Install the xvfb X11 server
+        cmd.run("sudo apt-get install -y xvfb")
 
-    # Install our 'screencap' script that allows us to start xvfb as a service.
-    cmd.run("sudo wget --output-document=/etc/init.d/screencap http://solvejs.s3.amazonaws.com/screencap")
-    cmd.run("sudo chmod 700 /etc/init.d/screencap")
+        # Install our 'screencap' script that allows us to start xvfb as a service.
+        cmd.run("sudo wget --output-document=/etc/init.d/screencap http://solvejs.s3.amazonaws.com/screencap")
+        cmd.run("sudo chmod 700 /etc/init.d/screencap")
     
-    # Run the xvfb service!
-    cmd.run("sudo /etc/init.d/screencap start")
+        # Run the xvfb service!
+        cmd.run("sudo /etc/init.d/screencap start")
     
-    # Download the sample Google Chrome user files. We'll need these to succeed at launching Chrome.
-    cmd.run("wget --output-document=/tmp/GoogleChromeLocalStateSample http://solvejs.s3.amazonaws.com/GoogleChromeLocalStateSample")
-    cmd.run("wget --output-document=/tmp/GoogleChromePreferencesSample http://solvejs.s3.amazonaws.com/GoogleChromePreferencesSample")
+        # Download the sample Google Chrome user files. We'll need these to succeed at launching Chrome.
+        cmd.run("mkdir /home/ubuntu/.config")
+        cmd.run("mkdir /home/ubuntu/.config/google-chrome")
+        cmd.run("mkdir /home/ubuntu/.config/google-chrome/Default/")
+        cmd.run("wget --output-document=/home/ubuntu/.config/google-chrome/Local\ State http://solvejs.s3.amazonaws.com/GoogleChromeLocalStateSample")
+        cmd.run("wget --output-document=/home/ubuntu/.config/google-chrome/Default/Preferences http://solvejs.s3.amazonaws.com/GoogleChromePreferencesSample")
 
-    cmd.run("mkdir /tmp/chrome")
-    for i in range(0, chrome_copies):
-        currChromeDataDir = "/tmp/chrome/" + str(i)
-        cmd.run("mkdir " + currChromeDataDir)
-        cmd.run("mkdir " + currChromeDataDir + "/Default")
-        cmd.run("cp /tmp/GoogleChromeLocalStateSample " + currChromeDataDir + "/Local\ State")
-        cmd.run("cp /tmp/GoogleChromePreferencesSample " + currChromeDataDir + "/Default/Preferences")
-        cmd.run("DISPLAY=:1 google-chrome " + server_address + " --user-data-dir=" + currChromeDataDir + " > /dev/null 2>&1 &")
+        # Copy the Chrome user files into their default location.
+        # cmd.run("cp /tmp/GoogleChromeLocalStateSample /home/ubuntu/.config/google-chrome/Local\ State")
+        # cmd.run("cp /tmp/GoogleChromePreferencesSample /home/ubuntu/.config/google-chrome/Default/Preferences")
+
+        #cmd.run("mkdir /tmp/chrome")
+        #for i in range(0, chrome_copies_per_instance):
+        #    currChromeDataDir = "/tmp/chrome/" + str(i)
+        #    cmd.run("mkdir " + currChromeDataDir)
+        #    cmd.run("mkdir " + currChromeDataDir + "/Default")
+        #    cmd.run("cp /tmp/GoogleChromeLocalStateSample " + currChromeDataDir + "/Local\ State")
+        #    cmd.run("cp /tmp/GoogleChromePreferencesSample " + currChromeDataDir + "/Default/Preferences")
+        #    cmd.run("DISPLAY=:1 google-chrome " + server_address + " --user-data-dir=" + currChromeDataDir + " > /dev/null 2>&1 &")
     
-    # Terminate the session?
-    cmd.run("exit")
+        # Terminate the session.
+        cmd.run("exit")

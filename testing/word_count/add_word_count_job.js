@@ -25,7 +25,7 @@ var map = "function(key, value, emit){ value.split(' ').forEach(function(word) {
 var reduce = "function(key, values, emit){ emit(key, values.length); }";
 
 db.new_user("spoletto@cs.brown.edu", "password", function(err) {
-    db.new_job("spoletto@cs.brown.edu", inputJSON, 2, map, reduce, "blurb", function(err, job_id) {
+    db.new_job("spoletto@cs.brown.edu", inputJSON, 1, map, reduce, "blurb", function(err, job_id) {
         console.log("Submitted job with ID = " + job_id);
     });
 });
