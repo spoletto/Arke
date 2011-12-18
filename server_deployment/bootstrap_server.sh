@@ -97,7 +97,7 @@ set logfile /var/log/monit.log
 check host nodejs with address 127.0.0.1
     start program = "/sbin/start nodeServer"
     stop program  = "/sbin/stop nodeServer"
-    if failed port 80 protocol HTTP
+    if failed port 8080 protocol HTTP
         request /
         with timeout 10 seconds
         then restart

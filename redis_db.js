@@ -161,18 +161,18 @@ function fetch_job(callback) {
 	client.srandmember(k_runnable(), callback);
 }
 
-// Callback should be function (err, job_id, chunk_id, chunk, map/reduce_code).
+// Callback should be function (err, job_id, chunk_id, chunk, phase, map/reduce_code).
 function dequeue_work(callback) {
 	assert(!!callback);
 	var getPhaseSpecificCode = function(job_id, chunk_id, chunk) {
 		client.get(k_phase(job_id), function(err, phase) {
 			if (phase == "Map") {
 				client.get(k_map_code(job_id), function(err, map_code) {
-					callback(err, job_id, chunk_id, chunk, map_code);
+					callback(err, job_id, chunk_id, chunk, "Map", map_code);
 				});
 			} else if (phase == "Reduce") {
 				client.get(k_reduce_code(job_id), function(err, reduce_code) {
-					callback(err, job_id, chunk_id, chunk, reduce_code);
+					callback(err, job_id, chunk_id, chunk, "Reduce", reduce_code);
 				});
 			} else if (phase == "Finished") {
 				callback(null, null, null, null, null);

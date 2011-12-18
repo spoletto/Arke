@@ -10,10 +10,10 @@ import logging
 # taken from http://alestic.com/
 def launch_instance(ami='ami-fd589594',
                     instance_type='t1.micro',
-                    key_name='solvejs',
+                    key_name='solvejs_client',
                     key_extension='.pem',
                     key_dir='~/.ssh',
-                    group_name='solvejs',
+                    group_name='solvejs_client',
                     ssh_port=22,
                     cidr='0.0.0.0/0',
                     tag='solvejs',
@@ -158,7 +158,7 @@ def launch_instance(ami='ami-fd589594',
     print 'launched instance with public DNS ' + str(instance.public_dns_name)
     return (instance, cmd)
 
-def bootstrap_instance():
+def bootstrap_instance(server_address, chrome_copies=1):
     (instance, cmd) = launch_instance()
     print "cmd is " + str(cmd)
     
@@ -183,14 +183,13 @@ def bootstrap_instance():
     cmd.run("wget --output-document=/tmp/GoogleChromePreferencesSample http://solvejs.s3.amazonaws.com/GoogleChromePreferencesSample")
 
     cmd.run("mkdir /tmp/chrome")
-    numChromeInstances = 12
-    for i in range(0, numChromeInstances):
+    for i in range(0, chrome_copies):
         currChromeDataDir = "/tmp/chrome/" + str(i)
         cmd.run("mkdir " + currChromeDataDir)
         cmd.run("mkdir " + currChromeDataDir + "/Default")
         cmd.run("cp /tmp/GoogleChromeLocalStateSample " + currChromeDataDir + "/Local\ State")
         cmd.run("cp /tmp/GoogleChromePreferencesSample " + currChromeDataDir + "/Default/Preferences")
-        cmd.run("DISPLAY=:1 google-chrome http://69.172.212.54 --user-data-dir=" + currChromeDataDir + " > /dev/null 2>&1 &")
+        cmd.run("DISPLAY=:1 google-chrome " + server_address + " --user-data-dir=" + currChromeDataDir + " > /dev/null 2>&1 &")
     
     # Terminate the session?
     cmd.run("exit")

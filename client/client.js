@@ -24,7 +24,7 @@ function MessagingWorker(jobid){
     function startNewTask(){
         logEvent("FETCH");
         now.getTask(function (task, code, data) {
-            logEvent("START");
+            logEvent("START_" + task.phase);
             currentTask = task;
             worker.postMessage({action: 'code', code: code});
             worker.postMessage({action: 'data', data: data});
@@ -33,7 +33,7 @@ function MessagingWorker(jobid){
 
     worker.onmessage = function(event){
         if(event.data.action === 'completeTask'){
-            logEvent("COMPLETE");
+            logEvent("COMPLETE_" + currentTask.phase);
             now.completeTask(currentTask, event.data.data, function() {});
             startNewTask();
         } else if (event.data.action === 'log'){

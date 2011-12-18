@@ -248,7 +248,7 @@ app.get('/results/:id', function(req,res){
 	});
 });
 
-app.listen(80);
+app.listen(8080);
 
 // Websocket goodness...
 
@@ -268,7 +268,7 @@ var LOG = false;
 everyone.now.getTask = function(retVal){
     var user = this.user;
     var now = this.now;
-    db.dequeue_work(function(err, job_id, chunk_id, chunk, code){
+    db.dequeue_work(function(err, job_id, chunk_id, chunk, phase, code){
         if(err){
             console.err("Error fetching task!", err);
             return;
@@ -290,6 +290,7 @@ everyone.now.getTask = function(retVal){
                             /* TODO store data */
                             console.log("Got log");
                             console.dir(data.length);
+							fs.writeFileSync('LOG_' + user.uid, JSON.stringify(data));
                         });
                     }
                 });
@@ -298,7 +299,7 @@ everyone.now.getTask = function(retVal){
             }
             return;
         }
-		var task = {'job_id': job_id, 'chunk_id': chunk_id};
+		var task = {'job_id': job_id, 'chunk_id': chunk_id, 'phase': phase};
 		
 		if (!user.connected) {
 			console.log("User disconnected!");
@@ -322,6 +323,7 @@ everyone.now.completeTask = function(task, data, retVal){
 everyone.on('join', function(){
     this.user.task = null;
 	this.user.connected = true;
+	this.user.uid = uuid.v4();
 });
 
 everyone.on('leave', function(){
