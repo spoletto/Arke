@@ -17,8 +17,8 @@ var MAP_FILENAME = 'tsp_map_big.js';
 var REDUCE_FILENAME = 'tsp_reduce.js';
 
 var inputJSON = [];
-for (var i = 0; i < 1744; i++) {
-	var key = "50000000," + i;
+for (var i = 0; i < 1246; i++) {
+	var key = "5000000," + i;
 	inputJSON.push({ "k":key, "v":"" });
 }
 
